@@ -4,17 +4,17 @@ const html = htm.bind(React.createElement)
 
 const BackArrow = () => html`
   <svg width="16" height="16" viewBox="0 0 32 32" fill="none" style=${{ transform: 'rotate(180deg)' }}>
-    <line x1="6" y1="16" x2="26" y2="16" stroke="#7A9AAA" stroke-width="2" stroke-linecap="square"/>
-    <line x1="26" y1="16" x2="18" y2="8" stroke="#7A9AAA" stroke-width="2" stroke-linecap="square"/>
-    <line x1="26" y1="16" x2="18" y2="24" stroke="#7A9AAA" stroke-width="2" stroke-linecap="square"/>
+    <line x1="6" y1="16" x2="26" y2="16" stroke="#7A9AAA" strokeWidth="2" strokeLinecap="square"/>
+    <line x1="26" y1="16" x2="18" y2="8" stroke="#7A9AAA" strokeWidth="2" strokeLinecap="square"/>
+    <line x1="26" y1="16" x2="18" y2="24" stroke="#7A9AAA" strokeWidth="2" strokeLinecap="square"/>
   </svg>
 `
 
 const NextArrow = () => html`
   <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
-    <line x1="6" y1="16" x2="26" y2="16" stroke="#101820" stroke-width="2" stroke-linecap="square"/>
-    <line x1="26" y1="16" x2="18" y2="8" stroke="#101820" stroke-width="2" stroke-linecap="square"/>
-    <line x1="26" y1="16" x2="18" y2="24" stroke="#101820" stroke-width="2" stroke-linecap="square"/>
+    <line x1="6" y1="16" x2="26" y2="16" stroke="#101820" strokeWidth="2" strokeLinecap="square"/>
+    <line x1="26" y1="16" x2="18" y2="8" stroke="#101820" strokeWidth="2" strokeLinecap="square"/>
+    <line x1="26" y1="16" x2="18" y2="24" stroke="#101820" strokeWidth="2" strokeLinecap="square"/>
   </svg>
 `
 

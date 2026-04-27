@@ -9,31 +9,154 @@ import Onboarding from './onboarding/Onboarding.js'
 
 // Storage import ensures migrations run before any component renders
 import * as storageLib from './lib/storage.js'
+import { buildContextBlock } from './prompts/index.js'
+import { parseVeraResponse } from './lib/api.js'
+
+if (localStorage.getItem('vera_debug') === 'true') {
+  console.log('[Vera] debug mode active')
+}
+window.VERA_DEBUG = {
+  enable:  () => { localStorage.setItem('vera_debug', 'true');  console.log('[Vera] debug enabled')  },
+  disable: () => { localStorage.setItem('vera_debug', 'false'); console.log('[Vera] debug disabled') },
+}
 
 const html = htm.bind(React.createElement)
 
-const TABS = {
-  share:    ShareTab,
+// ─── Date/time helpers ────────────────────────────────────────────────────────
+
+function dateToString(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function formatDayLabel(dateStr) {
+  const today = storageLib.getTodayString()
+  const yd = new Date()
+  yd.setDate(yd.getDate() - 1)
+  const yesterday = dateToString(yd)
+
+  if (dateStr === today)     return 'Today'
+  if (dateStr === yesterday) return 'Yesterday'
+
+  const date  = new Date(dateStr + 'T00:00:00')
+  const day   = date.toLocaleDateString('en-US', { weekday: 'short' })
+  const month = date.toLocaleDateString('en-US', { month: 'short' })
+  return `${day} · ${month} ${date.getDate()}`
+}
+
+function formatTime(isoString) {
+  return new Date(isoString)
+    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    .toLowerCase()
+}
+
+// ─── Opening / returning prompts ──────────────────────────────────────────────
+
+function getOpeningPrompt() {
+  const profile = storageLib.getUserProfile()
+  const name    = profile?.name
+  const hour    = new Date().getHours()
+
+  if (name) {
+    if (hour < 12) return `Good morning, ${name}. What's on your mind?`
+    if (hour < 17) return `Hey ${name} — what's going on today?`
+    return `Good evening, ${name}. How did today land for you?`
+  }
+
+  if (hour < 12) return `Good morning. What's on your mind?`
+  if (hour < 17) return `Hey — what's going on today?`
+  return `Good evening. How did today land for you?`
+}
+
+function getReturningPrompt() {
+  const profile = storageLib.getUserProfile()
+  const name    = profile?.name ? `, ${profile.name}` : ''
+  const hour    = new Date().getHours()
+  const day     = new Date().getDay()
+
+  const prompts = [
+    hour < 12
+      ? `How are you starting today${name}?`
+      : hour < 17
+        ? `How's the day going${name}?`
+        : `How did today land for you${name}?`,
+    `What's on your mind${name}?`,
+    day === 1 ? `How's the start of the week feeling${name}?`
+      : day === 5 ? `Friday — how are you doing${name}?`
+      : day === 0 || day === 6 ? `How's the weekend treating you${name}?`
+      : `What's been happening${name}?`,
+    `What are you carrying today${name}?`,
+  ]
+
+  return prompts[new Date().getDate() % prompts.length]
+}
+
+// ─── Conversation initialisation (runs once on mount) ─────────────────────────
+
+function initialiseConversation(setMessages) {
+  const all   = []
+  const today = new Date()
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const dateStr = dateToString(d)
+    const entries = storageLib.getEntriesForDate(dateStr)
+
+    if (entries.length > 0) {
+      all.push({ type: 'separator', date: dateStr, label: formatDayLabel(dateStr) })
+      entries.forEach(entry => {
+        all.push({ type: 'user', text: entry.userText, time: formatTime(entry.createdAt), id: entry.id })
+        if (entry.aiResponse) {
+          all.push({ type: 'vera', text: entry.aiResponse, id: entry.id + '_r' })
+        }
+      })
+    }
+  }
+
+  const todayEntries     = storageLib.getEntriesForDate(storageLib.getTodayString())
+  const hasTodayConvo    = todayEntries.length > 0
+
+  if (all.length === 0) {
+    all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
+    all.push({ type: 'vera', text: getOpeningPrompt(), id: 'opening' })
+  } else if (!hasTodayConvo) {
+    all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
+    all.push({ type: 'vera', text: getReturningPrompt(), id: 'daily_' + storageLib.getTodayString() })
+  }
+  // If user already talked today — just show history, no new prompt
+
+  setMessages(all)
+}
+
+// ─── Components ───────────────────────────────────────────────────────────────
+
+const OTHER_TABS = {
   intend:   IntendTab,
   remember: RememberTab,
   grow:     GrowTab,
 }
 
-function MainApp() {
+function MainApp({ messages, setMessages }) {
   const [activeTab, setActiveTab] = React.useState('share')
-  const TabComponent = TABS[activeTab]
 
-  // Share tab manages its own layout and bottom nav (InputBar contains both)
   if (activeTab === 'share') {
     return html`
       <div style=${{ position: 'relative', minHeight: '100dvh' }}>
         <div class="atmos"></div>
         <${Header} />
-        <${TabComponent} setActiveTab=${setActiveTab} />
+        <${ShareTab}
+          messages=${messages}
+          setMessages=${setMessages}
+          setActiveTab=${setActiveTab}
+        />
       </div>
     `
   }
 
+  const TabComponent = OTHER_TABS[activeTab]
   return html`
     <div style=${{ position: 'relative', minHeight: '100dvh' }}>
       <div class="atmos"></div>
@@ -52,12 +175,21 @@ function App() {
   const [onboardingDone, setOnboardingDone] = React.useState(
     () => storageLib.isOnboardingComplete()
   )
+  const [messages,               setMessages]               = React.useState([])
+  const [conversationInitialised, setConversationInitialised] = React.useState(false)
+
+  React.useEffect(() => {
+    if (onboardingDone && !conversationInitialised) {
+      initialiseConversation(setMessages)
+      setConversationInitialised(true)
+    }
+  }, [onboardingDone])
 
   if (!onboardingDone) {
     return html`<${Onboarding} onComplete=${() => setOnboardingDone(true)} />`
   }
 
-  return html`<${MainApp} />`
+  return html`<${MainApp} messages=${messages} setMessages=${setMessages} />`
 }
 
 const root = ReactDOM.createRoot(document.getElementById('app'))
@@ -66,6 +198,10 @@ root.render(html`<${App} />`)
 // DEV ONLY — remove before shipping
 window.veraTest = {
   storage: storageLib,
+  prompt: () => console.log(buildContextBlock()),
+  showPrompt: () => { const p = buildContextBlock(); console.log('%c[Vera system prompt]\n\n' + p, 'color:#E8A030') },
+  showContext: () => { const s = storageLib.getLivingSummary(); console.log('[Vera living summary]', s) },
+  parse: (raw) => { const r = parseVeraResponse(raw); console.log('[Vera parsed]', r); return r },
   resetOnboarding: () => {
     storageLib.updateUserProfile({ onboardingComplete: false })
     window.location.reload()

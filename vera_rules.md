@@ -132,3 +132,15 @@ If a new feature requirement seems to conflict with any rule in this document,
 stop and flag the conflict explicitly before writing any code.
 Do not silently work around a rule.
 Rules can be updated — but only deliberately, with the conflict noted.
+
+---
+
+## 11. Conversation state rules
+
+- Conversation state (messages array) must persist across tab switches
+- The Share tab must never re-initialise or re-greet if messages already exist
+- The opening prompt is shown exactly once per session — on first load if no
+  messages exist for today yet, or if the user is returning on a new day
+- Conversation state lives in App and is passed down to Share.js as props
+  so it survives tab unmounting and remounting
+- initialiseConversation() runs once on app mount (after onboarding), never again
