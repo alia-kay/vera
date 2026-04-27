@@ -9,9 +9,9 @@ import {
 
 // ─── Provider config ──────────────────────────────────────────────────────────
 
-const AI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
-const AI_MODEL    = 'gemini-2.5-flash'
-const AI_API_KEY  = 'AIzaSyBIkKxo4yu9tN3MaoUdybTKzu-Pg21KZGc' 
+const AI_ENDPOINT = 'https://api.anthropic.com/v1/messages'
+const AI_MODEL    = 'claude-haiku-4-5-20251001'
+const AI_API_KEY  = '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' // paste your key from console.anthropic.com
 const MAX_TOKENS_CONVERSATION = 1000
 const MAX_TOKENS_SUMMARY      = 500
 
@@ -23,9 +23,10 @@ async function callAI(systemPrompt, userMessage, maxTokens = MAX_TOKENS_CONVERSA
   if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.8 },
+    model: AI_MODEL,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
   }
 
   if (DEBUG()) {
@@ -35,9 +36,14 @@ async function callAI(systemPrompt, userMessage, maxTokens = MAX_TOKENS_CONVERSA
     console.groupEnd()
   }
 
-  const res = await fetch(`${AI_ENDPOINT}?key=${AI_API_KEY}`, {
+  const res = await fetch(AI_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': AI_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
     body: JSON.stringify(body),
   })
 
@@ -47,7 +53,7 @@ async function callAI(systemPrompt, userMessage, maxTokens = MAX_TOKENS_CONVERSA
   }
 
   const data = await res.json()
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+  const text = data?.content?.[0]?.text
 
   if (!text) throw new Error('AI returned an empty response')
 
