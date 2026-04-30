@@ -190,9 +190,8 @@ async function checkAndGenerateClosing(setMessages) {
 // ─── Components ───────────────────────────────────────────────────────────────
 
 const OTHER_TABS = {
-  intend:   IntendTab,
-  remember: RememberTab,
-  grow:     GrowTab,
+  intend: IntendTab,
+  grow:   GrowTab,
 }
 
 function MainApp({ messages, setMessages }) {
@@ -208,6 +207,18 @@ function MainApp({ messages, setMessages }) {
           setMessages=${setMessages}
           setActiveTab=${setActiveTab}
         />
+      </div>
+    `
+  }
+
+  // Remember tab takes over the full viewport like Share — its own scroll container
+  if (activeTab === 'remember') {
+    return html`
+      <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        <div class="atmos"></div>
+        <${Header} />
+        <${RememberTab} />
+        <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
       </div>
     `
   }
