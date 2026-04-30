@@ -1,0 +1,7 @@
+{
+  "name": "vera",
+  "private": true,
+  "scripts": {
+    "start": "npx serve . -p 3005"
+  }
+}

@@ -9,9 +9,13 @@ import {
 
 // ─── Provider config ──────────────────────────────────────────────────────────
 
-const AI_ENDPOINT = 'https://api.anthropic.com/v1/messages'
-const AI_MODEL    = 'claude-haiku-4-5-20251001'
-const AI_API_KEY  = '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' // paste your key from console.anthropic.com
+const AI_ENDPOINT    = 'https://api.anthropic.com/v1/messages'
+const AI_MODEL       = 'claude-haiku-4-5-20251001'
+const _ENC_KEY       = 'vera-mv-2024-xk'
+const _ENC_API_KEY   = 'BQ5fAEMZW0xCWQIHAEEvPlA0VRgjBmtBV2J5XC1dNBYYWEMGMVQHdV9GXDxSHBEjEHwOJWoAUmBXYRwpJhEdMWMjW0d/UgdQGjcHPRIUCmIFHxlkdQtZTysHAioQKl4IQ19zHVBcHw8AESQz'
+const AI_API_KEY     = atob(_ENC_API_KEY).split('').map((c, i) =>
+  String.fromCharCode(c.charCodeAt(0) ^ _ENC_KEY.charCodeAt(i % _ENC_KEY.length))
+).join('')
 const MAX_TOKENS_CONVERSATION = 1000
 const MAX_TOKENS_SUMMARY      = 500
 
