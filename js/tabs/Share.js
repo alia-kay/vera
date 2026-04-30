@@ -41,7 +41,7 @@ export default function ShareTab({ messages, setMessages, setActiveTab }) {
     setMessages(prev => [...prev, { type: 'user', text: userText, time: formatTime(now), id: entryId }])
 
     try {
-      const { displayText } = await sendMessage(userText)
+      const { displayText } = await sendMessage(userText, messages)
 
       setMessages(prev => [...prev, { type: 'vera', text: displayText, id: entryId + '_response' }])
 

@@ -1,10 +1,10 @@
 import { buildContextBlock, PROMPTS } from '../prompts/index.js'
 import {
-  getUserProfile,
   getLivingSummary,
   saveLivingSummary,
   getRecentEntries,
   addCustomPattern,
+  getTodayString,
 } from './storage.js'
 
 // ─── Provider config ──────────────────────────────────────────────────────────
@@ -23,20 +23,20 @@ const DEBUG = () => localStorage.getItem('vera_debug') === 'true'
 
 // ─── Core API call ────────────────────────────────────────────────────────────
 
-async function callAI(systemPrompt, userMessage, maxTokens = MAX_TOKENS_CONVERSATION) {
+async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION) {
   if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
 
   const body = {
     model: AI_MODEL,
     max_tokens: maxTokens,
     system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
+    messages: messages,
   }
 
   if (DEBUG()) {
     console.group('[Vera] callAI')
     console.log('system:', systemPrompt)
-    console.log('user:', userMessage)
+    console.log('messages:', messages)
     console.groupEnd()
   }
 
@@ -79,9 +79,39 @@ export function parseVeraResponse(rawResponse) {
 
 // ─── Send message ─────────────────────────────────────────────────────────────
 
-export async function sendMessage(userText) {
+export async function sendMessage(userText, allMessages = []) {
   const systemPrompt = buildContextBlock()
-  const rawResponse  = await callAI(systemPrompt, userText)
+
+  // Filter to today's conversation only — gives Vera full memory of today's thread
+  const todayStr = getTodayString()
+  let todayStartIdx = 0
+  allMessages.forEach((m, i) => {
+    if (m.type === 'separator' && m.date === todayStr) todayStartIdx = i + 1
+  })
+  const todayMessages = allMessages.slice(todayStartIdx)
+
+  // Build alternating user/assistant turns from today's history
+  const historyMessages = []
+  for (const msg of todayMessages) {
+    if (msg.type === 'user' && msg.text) {
+      historyMessages.push({ role: 'user', content: msg.text })
+    } else if (msg.type === 'vera' && msg.text) {
+      historyMessages.push({ role: 'assistant', content: msg.text })
+    }
+    // Skip separators, vera_closing, thinking indicators
+  }
+
+  // Append current user message
+  historyMessages.push({ role: 'user', content: userText })
+
+  if (DEBUG()) {
+    console.group('[Vera] sendMessage')
+    console.log('History turns (excluding current):', historyMessages.length - 1)
+    console.log('Current message:', userText)
+    console.groupEnd()
+  }
+
+  const rawResponse = await callAI(systemPrompt, historyMessages)
   const { displayText, newPattern } = parseVeraResponse(rawResponse)
 
   if (newPattern) {
@@ -103,9 +133,44 @@ export async function regenerateSummary() {
     ? PROMPTS.buildSummaryPrompt(entries, existing.summary)
     : PROMPTS.buildFirstSummaryPrompt(entries)
 
-  const newText = await callAI(prompt, 'Generate the summary now.', MAX_TOKENS_SUMMARY)
+  const newText = await callAI(
+    prompt,
+    [{ role: 'user', content: 'Generate the summary now.' }],
+    MAX_TOKENS_SUMMARY
+  )
 
   saveLivingSummary(newText)
 
   if (DEBUG()) console.log('[Vera] summary regenerated:', newText)
+}
+
+// ─── Daily closing generation ─────────────────────────────────────────────────
+// Called on app boot when yesterday's session has no closing.
+// Inserts a warm, specific closing retroactively at the end of yesterday's thread.
+
+export async function generateClosing(yesterdayMessages) {
+  if (!yesterdayMessages || yesterdayMessages.length === 0) return null
+
+  const conversationText = yesterdayMessages
+    .filter(m => m.type === 'user' || m.type === 'vera')
+    .map(m => `${m.type === 'user' ? 'Person' : 'Vera'}: ${m.text}`)
+    .join('\n')
+
+  if (!conversationText.trim()) return null
+
+  const closingPrompt = PROMPTS.closing(conversationText)
+
+  if (DEBUG()) console.log('[Vera] Generating closing for yesterday...')
+
+  try {
+    const response = await callAI(
+      'You are Vera. Follow the closing instructions exactly.',
+      [{ role: 'user', content: closingPrompt }],
+      150
+    )
+    return response.trim()
+  } catch (err) {
+    console.warn('[Vera] Closing generation failed silently:', err)
+    return null
+  }
 }

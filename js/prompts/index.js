@@ -1,5 +1,5 @@
 import { buildSystemPrompt } from './vera.js'
-import { buildSummaryPrompt, buildFirstSummaryPrompt } from './summary.js'
+import { buildSummaryPrompt, buildFirstSummaryPrompt, buildClosingPrompt } from './summary.js'
 import { getUserProfile, getLivingSummary } from '../lib/storage.js'
 
 // ─── Context block ────────────────────────────────────────────────────────────
@@ -17,4 +17,5 @@ export const PROMPTS = {
   buildSummaryPrompt,
   buildFirstSummaryPrompt,
   buildContextBlock,
+  closing: buildClosingPrompt,
 }

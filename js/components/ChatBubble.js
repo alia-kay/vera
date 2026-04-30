@@ -2,6 +2,26 @@ import htm from 'https://unpkg.com/htm?module'
 const html = htm.bind(React.createElement)
 
 export default function ChatBubble({ type, text, time }) {
+  if (type === 'vera_closing') {
+    return html`
+      <div style=${{
+        textAlign: 'center',
+        padding: '8px 24px 16px',
+        margin: '4px 0 12px',
+      }}>
+        <div style=${{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: '14px',
+          fontStyle: 'italic',
+          fontWeight: 300,
+          color: 'var(--text-dim)',
+          lineHeight: 1.7,
+          letterSpacing: '0.01em',
+        }}>${text}</div>
+      </div>
+    `
+  }
+
   if (type === 'thinking') {
     return html`
       <div class="bubble-vera">

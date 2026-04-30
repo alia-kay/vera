@@ -42,6 +42,39 @@ ${entryBlock}
 Write the updated summary now:`
 }
 
+// ─── Daily closing prompt ─────────────────────────────────────────────────────
+// Called the morning after a conversation to generate a warm closing.
+// The closing is retroactively inserted at the end of yesterday's thread.
+
+export function buildClosingPrompt(conversationText) {
+  return `\
+Read this conversation between a person and Vera (an AI companion):
+
+${conversationText}
+
+Write a closing message from Vera — 2 to 4 sentences.
+
+The tone: like a friend wrapping up a phone call. Warm, specific, and personal.
+Reference something real from what was said — a specific feeling, situation, or
+moment that came up. Don't summarise or list things. Just acknowledge what was
+present and wish them well.
+
+Signal that the conversation is done for the day, and that you'll talk tomorrow.
+
+Examples of the right tone:
+"Okay, that's enough for today. A lot came up — the meeting, that familiar anger,
+the exhaustion underneath it. Hope the evening is gentler than the day was.
+Talk tomorrow."
+
+"Alright. You named something real tonight. Sleep on it. Talk tomorrow."
+
+"That's a lot to be carrying. The tiredness makes sense. Hope the morning is
+quieter. Talk tomorrow."
+
+Never: generic affirmations, wellness language, or summaries that list topics.
+Always: specific, warm, brief, feels like a real person saying goodbye.`
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatEntries(entries) {

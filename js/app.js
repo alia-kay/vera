@@ -10,7 +10,7 @@ import Onboarding from './onboarding/Onboarding.js'
 // Storage import ensures migrations run before any component renders
 import * as storageLib from './lib/storage.js'
 import { buildContextBlock } from './prompts/index.js'
-import { parseVeraResponse } from './lib/api.js'
+import { parseVeraResponse, generateClosing } from './lib/api.js'
 
 if (localStorage.getItem('vera_debug') === 'true') {
   console.log('[Vera] debug mode active')
@@ -95,7 +95,7 @@ function getReturningPrompt() {
 
 // ─── Conversation initialisation (runs once on mount) ─────────────────────────
 
-function initialiseConversation(setMessages) {
+async function initialiseConversation(setMessages) {
   const all   = []
   const today = new Date()
 
@@ -108,6 +108,10 @@ function initialiseConversation(setMessages) {
     if (entries.length > 0) {
       all.push({ type: 'separator', date: dateStr, label: formatDayLabel(dateStr) })
       entries.forEach(entry => {
+        if (entry.type === 'vera_closing') {
+          all.push({ type: 'vera_closing', text: entry.aiResponse, id: entry.id })
+          return
+        }
         all.push({ type: 'user', text: entry.userText, time: formatTime(entry.createdAt), id: entry.id })
         if (entry.aiResponse) {
           all.push({ type: 'vera', text: entry.aiResponse, id: entry.id + '_r' })
@@ -129,6 +133,58 @@ function initialiseConversation(setMessages) {
   // If user already talked today — just show history, no new prompt
 
   setMessages(all)
+
+  // Retroactively close yesterday's thread if it has no closing yet
+  await checkAndGenerateClosing(setMessages)
+}
+
+// ─── Daily closing (retroactive, generated next morning) ──────────────────────
+
+async function checkAndGenerateClosing(setMessages) {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = dateToString(yesterday)
+
+  const yesterdayEntries = storageLib.getEntriesForDate(yesterdayStr)
+  if (yesterdayEntries.length === 0) return
+
+  const hasClosing = yesterdayEntries.some(e => e.type === 'vera_closing')
+  if (hasClosing) return
+
+  // Build a message list from yesterday's entries so generateClosing can read them
+  const yesterdayMessages = []
+  yesterdayEntries.forEach(entry => {
+    if (entry.userText) yesterdayMessages.push({ type: 'user', text: entry.userText })
+    if (entry.aiResponse) yesterdayMessages.push({ type: 'vera', text: entry.aiResponse })
+  })
+
+  const closingText = await generateClosing(yesterdayMessages)
+  if (!closingText) return
+
+  const closingId = storageLib.generateId()
+  storageLib.saveEntry(yesterdayStr, {
+    id: closingId,
+    createdAt: new Date(yesterdayStr + 'T23:59:00').toISOString(),
+    type: 'vera_closing',
+    userText: null,
+    aiResponse: closingText,
+    mood: null,
+    detectedSymptoms: [],
+    detectedThemes: [],
+    freeTags: [],
+  })
+
+  // Insert the closing bubble right before today's separator (or at the end)
+  setMessages(prev => {
+    const todayStr = storageLib.getTodayString()
+    const todaySepIdx = prev.findIndex(m => m.type === 'separator' && m.date === todayStr)
+    const endIdx = todaySepIdx === -1 ? prev.length : todaySepIdx
+
+    const closingMsg = { type: 'vera_closing', text: closingText, id: 'closing_' + yesterdayStr }
+    const next = [...prev]
+    next.splice(endIdx, 0, closingMsg)
+    return next
+  })
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
