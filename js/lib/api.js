@@ -12,7 +12,7 @@ import {
 const AI_ENDPOINT    = 'https://api.anthropic.com/v1/messages'
 const AI_MODEL       = 'claude-haiku-4-5-20251001'
 const _ENC_KEY       = 'vera-mv-2024-xk'
-const _ENC_API_KEY   = 'BQ5fAEMZW0xCWQIHAEEvPlA0VRgjBmtBV2J5XC1dNBYYWEMGMVQHdV9GXDxSHBEjEHwOJWoAUmBXYRwpJhEdMWMjW0d/UgdQGjcHPRIUCmIFHxlkdQtZTysHAioQKl4IQ19zHVBcHw8AESQz'
+const _ENC_API_KEY   = 'BQ5fAEMZW0xCWQIHABc7QigUCkcsGRl1QQBrXRkGHQE+GWcbKVtiRWZjex0lAjA+UBkLFE5EQmR+ZzIBAwICVEIEEnlmUlh4WzkuHAkdOE4IH114AAtxfik7Li01B1wKPkxzHQN2SDBcESQz'
 const AI_API_KEY     = atob(_ENC_API_KEY).split('').map((c, i) =>
   String.fromCharCode(c.charCodeAt(0) ^ _ENC_KEY.charCodeAt(i % _ENC_KEY.length))
 ).join('')
