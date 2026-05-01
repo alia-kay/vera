@@ -4,6 +4,8 @@ import {
   getTodayString,
   generateId,
   shouldRegenerateSummary,
+  elevatePatterns,
+  recomputePatternCounts,
 } from '../lib/storage.js'
 import { scanForSymptoms } from '../lib/scanner.js'
 import { sendMessage, regenerateSummary } from '../lib/api.js'
@@ -56,6 +58,13 @@ export default function ShareTab({ messages, setMessages, setActiveTab }) {
         detectedThemes: [],
         freeTags,
       })
+
+      try {
+        elevatePatterns()
+        recomputePatternCounts()
+      } catch (err) {
+        console.warn('Pattern maintenance failed silently:', err)
+      }
 
       if (shouldRegenerateSummary()) {
         regenerateSummary().catch(err => console.warn('Summary regeneration failed silently:', err))

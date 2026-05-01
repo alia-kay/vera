@@ -70,6 +70,14 @@ export default function RememberTab() {
     setSelectedEntries([])
   }
 
+  function handlePatternDelete(patternId) {
+    const deleted = trackedPatterns.find(p => p.id === patternId)
+    setTrackedPatterns(prev => prev.filter(p => p.id !== patternId))
+    if (deleted) {
+      setActiveFilters(prev => prev.filter(d => d !== deleted.domain))
+    }
+  }
+
   return html`
     <div style=${{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
       <div class="remember-atmos"></div>
@@ -97,6 +105,7 @@ export default function RememberTab() {
           patterns=${trackedPatterns}
           activeFilters=${activeFilters}
           onToggle=${handleFilterToggle}
+          onDelete=${handlePatternDelete}
         />
 
         <div class="mv-divider">

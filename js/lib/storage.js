@@ -299,6 +299,115 @@ export function addCustomPattern(name) {
   }
 }
 
+// Scans occurrences from the last 14 days.
+// Any keyword that appears 3+ times gets promoted to trackedPatterns.
+// Safe to call after every entry save — skips already-tracked patterns.
+export function elevatePatterns() {
+  try {
+    const data = getPatternData()
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 14)
+    const cutoffStr = cutoff.toISOString().split('T')[0]
+
+    const domainCounts = {}
+    for (const occ of data.occurrences) {
+      if (occ.date < cutoffStr) continue
+      const key = occ.domain + '::' + occ.keyword
+      if (!domainCounts[key]) {
+        domainCounts[key] = { domain: occ.domain, keyword: occ.keyword, count: 0 }
+      }
+      domainCounts[key].count++
+    }
+
+    const existingNames = new Set(data.trackedPatterns.map(p => p.name.toLowerCase()))
+
+    for (const entry of Object.values(domainCounts)) {
+      if (entry.count < 3) continue
+      if (existingNames.has(entry.keyword.toLowerCase())) continue
+
+      data.trackedPatterns.push({
+        id: generateId(),
+        name: entry.keyword,
+        domain: entry.domain,
+        firstSeen: getTodayString(),
+        lastSeen: getTodayString(),
+        totalCount: entry.count,
+        recentCount: entry.count,
+        source: 'keyword_scan',
+        isTracked: true,
+      })
+
+      existingNames.add(entry.keyword.toLowerCase())
+    }
+
+    savePatternData(data)
+  } catch (err) {
+    console.warn('elevatePatterns failed:', err)
+  }
+}
+
+// Recomputes recentCount (last 30 days) and totalCount for every entry in
+// trackedPatterns from the raw occurrences array.
+// Call after every saveEntry() to keep counts accurate.
+export function recomputePatternCounts() {
+  try {
+    const data = getPatternData()
+    const cutoff30 = new Date()
+    cutoff30.setDate(cutoff30.getDate() - 30)
+    const cutoffStr = cutoff30.toISOString().split('T')[0]
+
+    const totalCounts  = {}
+    const recentCounts = {}
+    const lastSeen     = {}
+
+    for (const occ of data.occurrences) {
+      const d = occ.domain
+      totalCounts[d] = (totalCounts[d] || 0) + 1
+      if (occ.date >= cutoffStr) {
+        recentCounts[d] = (recentCounts[d] || 0) + 1
+      }
+      if (!lastSeen[d] || occ.date > lastSeen[d]) {
+        lastSeen[d] = occ.date
+      }
+    }
+
+    for (const custom of data.customPatterns) {
+      const d = 'custom'
+      totalCounts[d] = (totalCounts[d] || 0) + custom.loggedDates.length
+      const recentDates = custom.loggedDates.filter(date => date >= cutoffStr)
+      recentCounts[d] = (recentCounts[d] || 0) + recentDates.length
+      if (custom.loggedDates.length > 0) {
+        const latest = custom.loggedDates.slice().sort().at(-1)
+        if (!lastSeen[d] || latest > lastSeen[d]) lastSeen[d] = latest
+      }
+    }
+
+    data.trackedPatterns = data.trackedPatterns.map(p => ({
+      ...p,
+      totalCount:  totalCounts[p.domain]  || p.totalCount  || 0,
+      recentCount: recentCounts[p.domain] || 0,
+      lastSeen:    lastSeen[p.domain]     || p.lastSeen,
+    }))
+
+    data.lastUpdated = new Date().toISOString()
+    savePatternData(data)
+  } catch (err) {
+    console.warn('recomputePatternCounts failed:', err)
+  }
+}
+
+// Removes a pattern from trackedPatterns by id.
+// Historical occurrences are preserved.
+export function deleteTrackedPattern(patternId) {
+  try {
+    const data = getPatternData()
+    data.trackedPatterns = data.trackedPatterns.filter(p => p.id !== patternId)
+    savePatternData(data)
+  } catch (err) {
+    console.warn('deleteTrackedPattern failed:', err)
+  }
+}
+
 export function logCustomPatternDate(patternId, date) {
   try {
     const data = getPatternData()
