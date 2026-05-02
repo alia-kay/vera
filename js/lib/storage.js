@@ -759,6 +759,36 @@ export function shouldRegenerateSummary() {
   }
 }
 
+// ─── Entries by week ─────────────────────────────────────────────────────────
+
+export function getEntriesForWeek(weekKey) {
+  try {
+    const [yearStr, weekStr] = weekKey.split('-')
+    const year = parseInt(yearStr, 10)
+    const week = parseInt(weekStr, 10)
+
+    const jan4 = new Date(Date.UTC(year, 0, 4))
+    const startOfWeek1 = new Date(jan4)
+    startOfWeek1.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() || 7) - 1))
+
+    const weekMonday = new Date(startOfWeek1)
+    weekMonday.setUTCDate(startOfWeek1.getUTCDate() + (week - 1) * 7)
+
+    const results = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekMonday)
+      d.setUTCDate(weekMonday.getUTCDate() + i)
+      const dateStr = d.toISOString().split('T')[0]
+      const dayEntries = getEntriesForDate(dateStr)
+      results.push(...dayEntries)
+    }
+    return results
+  } catch (e) {
+    console.error('Vera: getEntriesForWeek failed:', e)
+    return []
+  }
+}
+
 // ─── Export scanner for convenience ──────────────────────────────────────────
 
 export { scanForSymptoms }

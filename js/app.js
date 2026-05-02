@@ -190,8 +190,7 @@ async function checkAndGenerateClosing(setMessages) {
 // ─── Components ───────────────────────────────────────────────────────────────
 
 const OTHER_TABS = {
-  intend: IntendTab,
-  grow:   GrowTab,
+  grow: GrowTab,
 }
 
 function MainApp({ messages, setMessages }) {
@@ -218,6 +217,18 @@ function MainApp({ messages, setMessages }) {
         <div class="atmos"></div>
         <${Header} />
         <${RememberTab} />
+        <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
+      </div>
+    `
+  }
+
+  // Intend tab takes over the full viewport — its own scroll container
+  if (activeTab === 'intend') {
+    return html`
+      <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        <div class="atmos"></div>
+        <${Header} />
+        <${IntendTab} />
         <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
       </div>
     `

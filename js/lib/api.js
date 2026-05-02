@@ -23,7 +23,7 @@ const DEBUG = () => localStorage.getItem('vera_debug') === 'true'
 
 // ─── Core API call ────────────────────────────────────────────────────────────
 
-async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION) {
+export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION) {
   if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
 
   const body = {
@@ -142,6 +142,28 @@ export async function regenerateSummary() {
   saveLivingSummary(newText)
 
   if (DEBUG()) console.log('[Vera] summary regenerated:', newText)
+}
+
+// ─── Weekly review generation ─────────────────────────────────────────────────
+
+export async function generateWeeklyReview(answers, questions, intention, isMonthly = false) {
+  const prompt = PROMPTS.weeklyReview(answers, questions, intention, isMonthly)
+
+  try {
+    const raw = await callAI(
+      'You are a precise, empathetic observer. Return only valid JSON as instructed.',
+      [{ role: 'user', content: prompt }],
+      400
+    )
+    const clean = raw.replace(/```json|```/g, '').trim()
+    return JSON.parse(clean)
+  } catch (err) {
+    console.warn('Weekly review generation failed:', err)
+    return {
+      insights: ['Something meaningful happened — worth sitting with.'],
+      moodWord: 'Present',
+    }
+  }
 }
 
 // ─── Daily closing generation ─────────────────────────────────────────────────

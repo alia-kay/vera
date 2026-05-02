@@ -66,13 +66,46 @@ Examples of the right tone:
 the exhaustion underneath it. Hope the evening is gentler than the day was.
 Talk tomorrow."
 
-"Alright. You named something real tonight. Sleep on it. Talk tomorrow."
-
 "That's a lot to be carrying. The tiredness makes sense. Hope the morning is
 quieter. Talk tomorrow."
 
 Never: generic affirmations, wellness language, or summaries that list topics.
 Always: specific, warm, brief, feels like a real person saying goodbye.`
+}
+
+// ─── Weekly review prompt ─────────────────────────────────────────────────────
+
+export function buildWeeklyReviewPrompt(answers, questions, intention, isMonthly = false) {
+  const period = isMonthly ? 'monthly' : 'weekly'
+  const qa = questions.map((q, i) => `Q: "${q}"\nA: "${answers[i] || '(no answer)'}"`).join('\n\n')
+  const intentionText = intention?.sentence
+    ? `Their ${period} intention was: "${intention.sentence}"`
+    : `They had no set intention.`
+
+  return `\
+${intentionText}
+
+Their answers to the ${period} review questions:
+
+${qa}
+
+Write a brief review in Vera's voice. Return a JSON object:
+{
+  "insights": ["observation 1", "observation 2", "observation 3"],
+  "moodWord": "two to four word phrase"
+}
+
+Insights: 2–3 sentences. Each is a specific, warm observation drawn directly
+from what they wrote. Do not be generic. Reference their actual words.
+Write as Vera — perceptive, not clinical. These are the ✦ bullet points
+the user will see in their review card.
+
+moodWord: 2–4 words capturing the emotional texture of the period.
+Something they might say about themselves. Examples:
+"Exhausted but aware", "Quietly holding on", "More present than usual",
+"Harder than it looked", "Finding my footing".
+
+Return only valid JSON. No preamble, no markdown fences.`
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
