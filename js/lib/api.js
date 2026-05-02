@@ -1,4 +1,5 @@
 import { buildContextBlock, PROMPTS } from '../prompts/index.js'
+import { computeSignals, formatSignals } from './signals.js'
 import {
   getLivingSummary,
   saveLivingSummary,
@@ -80,8 +81,6 @@ export function parseVeraResponse(rawResponse) {
 // ─── Send message ─────────────────────────────────────────────────────────────
 
 export async function sendMessage(userText, allMessages = []) {
-  const systemPrompt = buildContextBlock()
-
   // Filter to today's conversation only — gives Vera full memory of today's thread
   const todayStr = getTodayString()
   let todayStartIdx = 0
@@ -89,6 +88,11 @@ export async function sendMessage(userText, allMessages = []) {
     if (m.type === 'separator' && m.date === todayStr) todayStartIdx = i + 1
   })
   const todayMessages = allMessages.slice(todayStartIdx)
+
+  // Compute signals and build final system prompt
+  const signals      = computeSignals(todayMessages)
+  const signalsBlock = formatSignals(signals)
+  const systemPrompt = buildContextBlock() + '\n\n' + signalsBlock
 
   // Build alternating user/assistant turns from today's history
   const historyMessages = []
@@ -105,9 +109,10 @@ export async function sendMessage(userText, allMessages = []) {
   historyMessages.push({ role: 'user', content: userText })
 
   if (DEBUG()) {
-    console.group('[Vera] sendMessage')
-    console.log('History turns (excluding current):', historyMessages.length - 1)
-    console.log('Current message:', userText)
+    console.group('[Vera] AI call')
+    console.log('Signals:', signals)
+    console.log('System prompt:\n', systemPrompt)
+    console.log('History turns:', historyMessages.length - 1)
     console.groupEnd()
   }
 
@@ -163,6 +168,87 @@ export async function generateWeeklyReview(answers, questions, intention, isMont
       insights: ['Something meaningful happened — worth sitting with.'],
       moodWord: 'Present',
     }
+  }
+}
+
+// ─── Re-engagement opening (3+ days away) ────────────────────────────────────
+
+export async function generateReEngagementOpening(daysInactive) {
+  const recentEntries = getRecentEntries(5)
+  if (!recentEntries || recentEntries.length === 0) return null
+
+  const recentContext = recentEntries
+    .slice(0, 3)
+    .map(e => e.userText.slice(0, 120))
+    .join('\n')
+
+  const prompt = `\
+You are Vera — a close, warm friend. The user hasn't opened the app in ${daysInactive} days.
+
+Here is what they last talked about:
+${recentContext}
+
+Write ONE short opening message (1 sentence, 2 at most) that:
+- Acknowledges they've been away without making it a big deal
+- References something specific from what they last shared if it feels natural
+- Feels like a friend texting, not an app notification
+- Uses natural, casual phrasing — lowercase is fine
+- Does NOT start with "I"
+- Does NOT use therapy language or over-validation
+- Does NOT use exclamation points or em dashes
+
+Good tone examples:
+"hey, it's been a few days — what's been going on?"
+"last time you were here work felt a bit frustrating... did that ease up at all?"
+"it's been a few days. how are you doing?"
+
+Return only the message text. No quotes, no explanation, no formatting.`
+
+  try {
+    const response = await callAI(
+      'You are Vera. Write only the message text as instructed. Keep it to 1-2 sentences.',
+      [{ role: 'user', content: prompt }],
+      80
+    )
+    return response.trim().replace(/^["']|["']$/g, '')
+  } catch (e) {
+    return null
+  }
+}
+
+// ─── Contextual opening (returning same-day or 1-2 days) ─────────────────────
+
+export async function generateContextualOpening(recentContext) {
+  const prompt = `\
+You are Vera — a close, warm friend. The user is opening the app.
+
+Recent context from their life:
+${recentContext}
+
+Write ONE short opening message (1 sentence) that:
+- Feels like a natural continuation, not a fresh start
+- May gently reference something from the context if it feels right
+- Does not recap or summarise — just opens naturally
+- Casual, warm, lowercase is fine
+- No exclamation points, no em dashes, does not start with "I"
+
+Examples:
+"how are you doing today?"
+"how did yesterday end up?"
+"how's today been so far?"
+"the week still feeling heavy?"
+
+Return only the message text.`
+
+  try {
+    const response = await callAI(
+      'You are Vera. Write only the message text. One sentence.',
+      [{ role: 'user', content: prompt }],
+      60
+    )
+    return response.trim().replace(/^["']|["']$/g, '')
+  } catch (e) {
+    return null
   }
 }
 

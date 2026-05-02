@@ -10,7 +10,8 @@ import Onboarding from './onboarding/Onboarding.js'
 // Storage import ensures migrations run before any component renders
 import * as storageLib from './lib/storage.js'
 import { buildContextBlock } from './prompts/index.js'
-import { parseVeraResponse, generateClosing } from './lib/api.js'
+import { parseVeraResponse, generateClosing, generateReEngagementOpening, generateContextualOpening } from './lib/api.js'
+import { computeSignals } from './lib/signals.js'
 
 if (localStorage.getItem('vera_debug') === 'true') {
   console.log('[Vera] debug mode active')
@@ -52,45 +53,57 @@ function formatTime(isoString) {
     .toLowerCase()
 }
 
-// ─── Opening / returning prompts ──────────────────────────────────────────────
+// ─── Opening message (async, memory-aware) ────────────────────────────────────
 
-function getOpeningPrompt() {
-  const profile = storageLib.getUserProfile()
-  const name    = profile?.name
-  const hour    = new Date().getHours()
+async function buildOpeningMessage(allMessages) {
+  const profile  = storageLib.getUserProfile()
+  const name     = profile?.name || null
+  const nameStr  = name ? `, ${name}` : ''
+  const hour     = new Date().getHours()
+  const day      = new Date().getDay()
+  const signals  = computeSignals(allMessages)
 
-  if (name) {
-    if (hour < 12) return `Good morning, ${name}. What's on your mind?`
-    if (hour < 17) return `Hey ${name} — what's going on today?`
-    return `Good evening, ${name}. How did today land for you?`
+  // New user — no history
+  if (signals.daysInactive >= 30 || signals.memorySignal === 'none') {
+    if (hour < 12) return `morning${nameStr} — what's on your mind?`
+    if (hour < 17) return `hey${nameStr} — how's the day going?`
+    return `hey${nameStr} — what's been going on today?`
   }
 
-  if (hour < 12) return `Good morning. What's on your mind?`
-  if (hour < 17) return `Hey — what's going on today?`
-  return `Good evening. How did today land for you?`
-}
+  // Returning after 3+ days — generate memory-aware opening via AI
+  if (signals.daysInactive >= 3) {
+    try {
+      const opening = await generateReEngagementOpening(signals.daysInactive)
+      if (opening) return opening
+    } catch (e) { /* fall through */ }
+    return `hey${nameStr}, it's been a few days — what's been going on?`
+  }
 
-function getReturningPrompt() {
-  const profile = storageLib.getUserProfile()
-  const name    = profile?.name ? `, ${profile.name}` : ''
-  const hour    = new Date().getHours()
-  const day     = new Date().getDay()
+  // Returning after 1-2 days — sometimes use contextual AI opening
+  if (signals.daysInactive >= 1 && signals.memorySignal === 'available') {
+    if (Math.random() > 0.5) {
+      try {
+        const recentEntries = storageLib.getRecentEntries(3)
+        const recentContext = recentEntries.map(e => e.userText.slice(0, 100)).join('\n')
+        const opening = await generateContextualOpening(recentContext)
+        if (opening) return opening
+      } catch (e) { /* fall through */ }
+    }
+    return `hey${nameStr} — how are you doing today?`
+  }
 
-  const prompts = [
-    hour < 12
-      ? `How are you starting today${name}?`
-      : hour < 17
-        ? `How's the day going${name}?`
-        : `How did today land for you${name}?`,
-    `What's on your mind${name}?`,
-    day === 1 ? `How's the start of the week feeling${name}?`
-      : day === 5 ? `Friday — how are you doing${name}?`
-      : day === 0 || day === 6 ? `How's the weekend treating you${name}?`
-      : `What's been happening${name}?`,
-    `What are you carrying today${name}?`,
-  ]
+  // Same-day return — vary by time and day
+  const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][day]
+  const options = [
+    hour < 12 ? `morning${nameStr} — how are you starting today?` : null,
+    hour >= 17 && (day === 0 || day === 6) ? `${dayName} evening${nameStr} — how's the weekend been?` : null,
+    hour >= 17 && day === 5 ? `friday evening${nameStr} — how did the week end up?` : null,
+    `hey${nameStr} — how's the day going?`,
+    `what's been on your mind${nameStr}?`,
+    `how are you doing today${nameStr}?`,
+  ].filter(Boolean)
 
-  return prompts[new Date().getDate() % prompts.length]
+  return options[Math.floor(Math.random() * options.length)]
 }
 
 // ─── Conversation initialisation (runs once on mount) ─────────────────────────
@@ -123,12 +136,12 @@ async function initialiseConversation(setMessages) {
   const todayEntries     = storageLib.getEntriesForDate(storageLib.getTodayString())
   const hasTodayConvo    = todayEntries.length > 0
 
-  if (all.length === 0) {
+  if (!hasTodayConvo) {
     all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
-    all.push({ type: 'vera', text: getOpeningPrompt(), id: 'opening' })
-  } else if (!hasTodayConvo) {
-    all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
-    all.push({ type: 'vera', text: getReturningPrompt(), id: 'daily_' + storageLib.getTodayString() })
+    setMessages([...all]) // render history + separator immediately while awaiting opening
+
+    const openingText = await buildOpeningMessage(all)
+    all.push({ type: 'vera', text: openingText, id: 'opening_' + storageLib.getTodayString() })
   }
   // If user already talked today — just show history, no new prompt
 
