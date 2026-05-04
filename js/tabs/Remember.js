@@ -1,5 +1,5 @@
 import htm from 'https://unpkg.com/htm?module'
-import { getEntriesForDate, getTrackedPatterns } from '../lib/storage.js'
+import { getEntriesForDate } from '../lib/storage.js'
 import MoodCalendar from '../components/MoodCalendar.js'
 import PatternChips from '../components/PatternChips.js'
 import EntryViewer from '../components/EntryViewer.js'
@@ -7,18 +7,14 @@ import PatternList from '../components/PatternList.js'
 
 const html = htm.bind(React.createElement)
 
-export default function RememberTab() {
+export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
   const today = new Date()
   const [displayYear,     setDisplayYear]     = React.useState(today.getFullYear())
   const [displayMonth,    setDisplayMonth]    = React.useState(today.getMonth() + 1)
   const [selectedDate,    setSelectedDate]    = React.useState(null)
   const [selectedEntries, setSelectedEntries] = React.useState([])
   const [activeFilters,   setActiveFilters]   = React.useState([])
-  const [trackedPatterns, setTrackedPatterns] = React.useState([])
-
-  React.useEffect(() => {
-    setTrackedPatterns(getTrackedPatterns())
-  }, [])
+  const [recapCache,      setRecapCache]      = React.useState({})
 
   function handleDaySelect(dateStr) {
     if (selectedDate === dateStr) {
@@ -72,10 +68,12 @@ export default function RememberTab() {
 
   function handlePatternDelete(patternId) {
     const deleted = trackedPatterns.find(p => p.id === patternId)
-    setTrackedPatterns(prev => prev.filter(p => p.id !== patternId))
-    if (deleted) {
-      setActiveFilters(prev => prev.filter(d => d !== deleted.domain))
-    }
+    if (deleted) setActiveFilters(prev => prev.filter(d => d !== deleted.domain))
+    if (onPatternDeleted) onPatternDeleted()
+  }
+
+  function handleRecapGenerated(date, text) {
+    setRecapCache(prev => ({ ...prev, [date]: text }))
   }
 
   return html`
@@ -98,6 +96,8 @@ export default function RememberTab() {
             date=${selectedDate}
             entries=${selectedEntries}
             onClose=${handleClose}
+            recapCache=${recapCache}
+            onRecapGenerated=${handleRecapGenerated}
           />
         `}
 

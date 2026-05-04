@@ -23,9 +23,9 @@ const WEEKLY_QUESTIONS = [
 ]
 
 const MONTHLY_QUESTIONS = [
-  'How would you describe this month in a few words?',
-  'What shifted in you this month — even slightly?',
-  'What do you want to do differently next month?',
+  'How would you describe the shape of this month?',
+  'What shifted in you — even slightly — that you want to carry forward?',
+  'What do you want to move toward next month?',
 ]
 
 // ─── Checklist item ───────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function IntentionView({ intention, periodKey, periodType, endDate, onStartEdit,
         />
       </div>
 
-      ${items.length > 0 && html`
+      ${periodType === 'week' && items.length > 0 && html`
         <div class="checklist">
           ${items.map(item => html`
             <${CheckItem}
@@ -146,28 +146,50 @@ function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, o
     onSaved()
   }
 
+  const isMonthly = periodType === 'month'
+
   return html`
     <div class="edit-wrap">
       <div class="edit-hint">editing</div>
       <textarea
         class="edit-textarea"
-        placeholder="What do you want this week to feel like?"
+        placeholder=${isMonthly
+          ? 'What do you want to move toward this month?'
+          : 'What do you want this week to feel like?'
+        }
         value=${editSentence}
         onInput=${e => setEditSentence(e.target.value)}
       ></textarea>
 
-      <div class="add-item-row">
-        <input
-          class="add-item-input"
-          placeholder="Add intention..."
-          value=${newItemText}
-          onInput=${e => setNewItemText(e.target.value)}
-          onKeyDown=${e => e.key === 'Enter' && handleAddItem()}
-        />
-        <div class="add-item-btn" onClick=${handleAddItem}>+</div>
-      </div>
+      ${isMonthly && html`
+        <div style=${{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: '13px',
+          fontStyle: 'italic',
+          color: 'var(--text-dim)',
+          opacity: 0.6,
+          lineHeight: 1.6,
+          marginBottom: '10px',
+          paddingLeft: '2px',
+        }}>
+          Think direction, not tasks. What would it mean if this month felt different?
+        </div>
+      `}
 
-      ${editItems.length > 0 && html`
+      ${!isMonthly && html`
+        <div class="add-item-row">
+          <input
+            class="add-item-input"
+            placeholder="Add intention..."
+            value=${newItemText}
+            onInput=${e => setNewItemText(e.target.value)}
+            onKeyDown=${e => e.key === 'Enter' && handleAddItem()}
+          />
+          <div class="add-item-btn" onClick=${handleAddItem}>+</div>
+        </div>
+      `}
+
+      ${!isMonthly && editItems.length > 0 && html`
         <div class="checklist">
           ${editItems.map(item => html`
             <${CheckItem}
@@ -459,7 +481,10 @@ export default function WeekCard({
               lineHeight: 1.6,
               marginBottom: '16px',
             }}>
-              "The week has passed. Vera will read what you shared and put together a few thoughts."
+              ${isWeek
+                ? '"The week has passed. Vera will read what you shared and put together a few thoughts."'
+                : '"The month has passed. Vera will read what you shared and reflect back what she noticed."'
+              }
             </div>
             <div class="amber-btn" onClick=${() => onStartReview(periodKey)}>Begin review</div>
           </div>

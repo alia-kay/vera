@@ -21,7 +21,7 @@ function formatTime(isoString) {
     .toLowerCase()
 }
 
-export default function ShareTab({ messages, setMessages, setActiveTab }) {
+export default function ShareTab({ messages, setMessages, setActiveTab, onPatternAdded }) {
   const [inputText,  setInputText]  = React.useState('')
   const [isThinking, setIsThinking] = React.useState(false)
   const chatEndRef = React.useRef(null)
@@ -43,9 +43,11 @@ export default function ShareTab({ messages, setMessages, setActiveTab }) {
     setMessages(prev => [...prev, { type: 'user', text: userText, time: formatTime(now), id: entryId }])
 
     try {
-      const { displayText } = await sendMessage(userText, messages)
+      const { displayText, newPattern } = await sendMessage(userText, messages)
 
       setMessages(prev => [...prev, { type: 'vera', text: displayText, id: entryId + '_response' }])
+
+      if (newPattern && onPatternAdded) onPatternAdded()
 
       const { detected, freeTags } = scanForSymptoms(userText)
       saveEntry(getTodayString(), {

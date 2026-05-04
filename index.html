@@ -1183,22 +1183,16 @@
     .check-item:last-child { border-bottom: none; }
 
     .check-box {
-      width: 18px; height: 18px;
+      width: 10px; height: 10px;
       border: 1px solid var(--text-dim);
       transform: rotate(45deg);
       flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      transition: border-color 0.15s ease, background 0.15s ease;
     }
     .check-box.checked {
-      border-color: var(--amber);
-      background: rgba(232,160,48,0.15);
-    }
-    .check-box.checked::after {
-      content: '';
-      width: 6px; height: 6px;
       background: var(--amber);
+      border-color: var(--amber);
     }
+    .check-box.checked::after { display: none; }
 
     .check-text { font-size: 14px; font-weight: 300; color: var(--text); line-height: 1.4; }
     .check-text.done {

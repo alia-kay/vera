@@ -80,24 +80,52 @@ function getWeeksForMonth(year, month) {
   return weeks
 }
 
-function getMonthsForYear(year) {
-  const NAMES = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December',
-  ]
-  return NAMES.map((name, i) => {
-    const monthNum = i + 1
-    const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`
-    const firstDay = new Date(year, i, 1)
-    const lastDay  = new Date(year, i + 1, 0)
-    return {
-      periodKey:  monthKey,
-      periodType: 'month',
-      startDate:  firstDay.toISOString().split('T')[0],
-      endDate:    lastDay.toISOString().split('T')[0],
-      label:      `${name} ${year}`,
+const MONTH_NAMES_FULL = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+
+function makeMonthPeriod(year, month) {
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`
+  const firstDay = new Date(year, month - 1, 1)
+  const lastDay  = new Date(year, month, 0)
+  return {
+    periodKey:  monthKey,
+    periodType: 'month',
+    startDate:  firstDay.toISOString().split('T')[0],
+    endDate:    lastDay.toISOString().split('T')[0],
+    label:      `${MONTH_NAMES_FULL[month - 1]} ${year}`,
+  }
+}
+
+function getMonthsToShow(displayYear, displayMonth) {
+  const months = []
+
+  // Show current (display) month always
+  months.push(makeMonthPeriod(displayYear, displayMonth))
+
+  // Show 2 future months
+  for (let i = 1; i <= 2; i++) {
+    let m = displayMonth + i
+    let y = displayYear
+    if (m > 12) { m -= 12; y++ }
+    months.push(makeMonthPeriod(y, m))
+  }
+
+  // Show past months ONLY if they have an intention set
+  const pastMonths = []
+  for (let i = 1; i <= 6; i++) {
+    let m = displayMonth - i
+    let y = displayYear
+    if (m < 1) { m += 12; y-- }
+    const monthKey = `${y}-${String(m).padStart(2, '0')}`
+    const intention = getMonthlyIntention(monthKey)
+    if (intention?.sentence) {
+      pastMonths.unshift(makeMonthPeriod(y, m))
     }
-  })
+  }
+
+  return [...pastMonths, ...months]
 }
 
 function isThisPeriod(startDate, endDate, periodType, periodKey) {
@@ -181,7 +209,7 @@ export default function IntendTab() {
 
   const periods = period === 'weeks'
     ? getWeeksForMonth(displayYear, displayMonth)
-    : getMonthsForYear(displayYear)
+    : getMonthsToShow(displayYear, displayMonth)
 
   // ─── Card toggle ────────────────────────────────────────────────────────────
 

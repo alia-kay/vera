@@ -82,6 +82,23 @@ export function buildWeeklyReviewPrompt(answers, questions, intention, isMonthly
     ? `Their ${period} intention was: "${intention.sentence}"`
     : `They had no set intention.`
 
+  const insightGuidance = isMonthly
+    ? `Insights: 2-3 observations about themes, direction, and what seems to be shifting
+over the arc of the month. Look for patterns across what they wrote.
+What is becoming clearer? What is still unresolved? What seems to matter most?
+Write as Vera — perceptive, warm, not clinical.`
+    : `Insights: 2-3 specific observations drawn directly from what they wrote.
+Reference their actual words. Look for what was hardest, what shifted,
+what they seem to be carrying. Write as Vera — perceptive, not clinical.`
+
+  const moodWordGuidance = isMonthly
+    ? `moodWord: 2-4 words capturing the emotional or directional texture of the month.
+Something thematic: "Finding my footing", "Quietly figuring things out",
+"More intentional than before", "Still searching", "Harder than it looked".`
+    : `moodWord: 2-4 words capturing the emotional texture of the week.
+Something they might say about themselves: "Exhausted but aware",
+"Quietly holding on", "More present than usual".`
+
   return `\
 ${intentionText}
 
@@ -89,21 +106,15 @@ Their answers to the ${period} review questions:
 
 ${qa}
 
-Write a brief review in Vera's voice. Return a JSON object:
+Write a ${period} review in Vera's voice. Return a JSON object:
 {
   "insights": ["observation 1", "observation 2", "observation 3"],
   "moodWord": "two to four word phrase"
 }
 
-Insights: 2–3 sentences. Each is a specific, warm observation drawn directly
-from what they wrote. Do not be generic. Reference their actual words.
-Write as Vera — perceptive, not clinical. These are the ✦ bullet points
-the user will see in their review card.
+${insightGuidance}
 
-moodWord: 2–4 words capturing the emotional texture of the period.
-Something they might say about themselves. Examples:
-"Exhausted but aware", "Quietly holding on", "More present than usual",
-"Harder than it looked", "Finding my footing".
+${moodWordGuidance}
 
 Return only valid JSON. No preamble, no markdown fences.`
 }

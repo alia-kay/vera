@@ -207,7 +207,12 @@ const OTHER_TABS = {
 }
 
 function MainApp({ messages, setMessages }) {
-  const [activeTab, setActiveTab] = React.useState('share')
+  const [activeTab,       setActiveTab]       = React.useState('share')
+  const [trackedPatterns, setTrackedPatterns] = React.useState(() => storageLib.getTrackedPatterns())
+
+  function refreshPatterns() {
+    setTrackedPatterns(storageLib.getTrackedPatterns())
+  }
 
   if (activeTab === 'share') {
     return html`
@@ -218,6 +223,7 @@ function MainApp({ messages, setMessages }) {
           messages=${messages}
           setMessages=${setMessages}
           setActiveTab=${setActiveTab}
+          onPatternAdded=${refreshPatterns}
         />
       </div>
     `
@@ -229,7 +235,10 @@ function MainApp({ messages, setMessages }) {
       <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <div class="atmos"></div>
         <${Header} />
-        <${RememberTab} />
+        <${RememberTab}
+          trackedPatterns=${trackedPatterns}
+          onPatternDeleted=${refreshPatterns}
+        />
         <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
       </div>
     `

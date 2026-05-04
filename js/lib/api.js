@@ -252,6 +252,47 @@ Return only the message text.`
   }
 }
 
+// ─── Day summary (calendar recap) ────────────────────────────────────────────
+
+export async function generateDaySummary(entries) {
+  if (!entries || entries.length === 0) return null
+
+  const conversationText = entries
+    .filter(e => e.userText && e.aiResponse && e.type !== 'vera_closing')
+    .map(e => `Person: ${e.userText}\nVera: ${e.aiResponse}`)
+    .join('\n\n')
+
+  if (!conversationText.trim()) return null
+
+  const prompt = `\
+Read this conversation and write a brief recap of what was shared and discussed.
+
+${conversationText}
+
+Write 2-3 sentences in third person that capture:
+- what was on the person's mind that day
+- the emotional texture of the conversation
+- anything significant that came up
+
+Write warmly and specifically — reference what actually happened, not generic observations.
+This recap will be shown to the person when they look back at this day in their calendar.
+
+Do not start with "The person..." — just describe what happened naturally.
+No bullet points. No lists. Plain prose only.`
+
+  try {
+    const response = await callAI(
+      'Write a warm, specific 2-3 sentence recap of this conversation.',
+      [{ role: 'user', content: prompt }],
+      150
+    )
+    return response.trim()
+  } catch (e) {
+    if (DEBUG()) console.warn('[Vera] Day summary generation failed:', e)
+    return null
+  }
+}
+
 // ─── Daily closing generation ─────────────────────────────────────────────────
 // Called on app boot when yesterday's session has no closing.
 // Inserts a warm, specific closing retroactively at the end of yesterday's thread.

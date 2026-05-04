@@ -53,8 +53,25 @@ function computeEmotionalWeight(messages) {
 }
 
 function computeQuestionFatigue(messages) {
-  const recentVera = messages.filter(m => m.type === 'vera').slice(-3)
-  return recentVera.filter(m => m.text && m.text.includes('?')).length
+  const veraMessages = messages.filter(m => m.type === 'vera' && m.text)
+  if (veraMessages.length === 0) return 0
+
+  let fatigue = 0
+  let consecutiveStatements = 0
+
+  for (let i = veraMessages.length - 1; i >= 0 && i >= veraMessages.length - 4; i--) {
+    const hasQuestion = veraMessages[i].text.includes('?')
+    if (hasQuestion) {
+      if (consecutiveStatements >= 2) break // rhythm reset — stop counting
+      fatigue++
+      consecutiveStatements = 0
+    } else {
+      consecutiveStatements++
+      if (consecutiveStatements >= 2) break // 2 statements = reset
+    }
+  }
+
+  return fatigue
 }
 
 function computeMemorySignal() {
