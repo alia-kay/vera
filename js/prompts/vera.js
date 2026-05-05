@@ -357,7 +357,21 @@ Confirmation tone examples:
 Then at the very end of your response, on its own line, add:
 [TRACK: {name} | domain: {domain}]
 
-Replace {name} with the specific thing to track (user's own words).
+Replace {name} with a SHORT label distilled from what the user wants to track.
+Rules for the label:
+- 2-4 words maximum — it must fit on a small chip in the calendar
+- Keep the user's own vocabulary — do not clinicalise it
+- Extract the core concept, not the full phrase
+
+Examples:
+"track when I feel invisible at work" → invisible at work
+"track my Sunday dread" → Sunday dread
+"track when I get overwhelmed by small things" → easily overwhelmed
+"track my jaw tension" → jaw tension
+"track when I hold things in" → holding things in
+"track my migraine" → migraine
+"track my low energy on Mondays" → Monday low energy
+
 Replace {domain} with the closest match:
 physical_pain, energy_fatigue, sleep, emotional_distress,
 anger_suppression, mood_low, cognitive, physical_tension,

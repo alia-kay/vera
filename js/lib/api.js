@@ -120,7 +120,7 @@ export async function sendMessage(userText, allMessages = []) {
   const { displayText, newPattern } = parseVeraResponse(rawResponse)
 
   if (newPattern) {
-    addCustomPattern(newPattern.name)
+    addCustomPattern(newPattern.name, newPattern.domain)
     if (DEBUG()) console.log('[Vera] new pattern tracked:', newPattern)
   }
 

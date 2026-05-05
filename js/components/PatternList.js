@@ -3,17 +3,18 @@ import htm from 'https://unpkg.com/htm?module'
 const html = htm.bind(React.createElement)
 
 const DOMAIN_COLOURS = {
-  physical_pain:      'rgba(220,100,80,0.8)',
-  anger_suppression:  'rgba(74,180,160,0.8)',
-  sleep:              'rgba(100,130,200,0.8)',
-  emotional_distress: 'rgba(140,100,170,0.8)',
-  physical_tension:   'rgba(170,150,60,0.8)',
-  energy_fatigue:     'rgba(90,100,130,0.8)',
-  mood_low:           'rgba(80,120,160,0.8)',
-  cognitive:          'rgba(140,160,100,0.8)',
-  self_worth:         'rgba(180,120,80,0.8)',
-  social_relational:  'rgba(100,160,140,0.8)',
-  custom:             'rgba(160,160,160,0.8)',
+  physical_pain:      '#FF6B6B',
+  anger_suppression:  '#2DD4BF',
+  sleep:              '#7C9EFF',
+  emotional_distress: '#C084FC',
+  physical_tension:   '#FBBF24',
+  energy_fatigue:     '#60A5FA',
+  mood_low:           '#818CF8',
+  cognitive:          '#A3E635',
+  self_worth:         '#FB923C',
+  social_relational:  '#34D399',
+  appetite_body:      '#FB7185',
+  custom:             '#94A3B8',
 }
 
 const DOMAIN_INSIGHTS = {

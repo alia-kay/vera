@@ -1,7 +1,6 @@
 import htm from 'https://unpkg.com/htm?module'
 import { getEntriesForDate } from '../lib/storage.js'
 import MoodCalendar from '../components/MoodCalendar.js'
-import PatternChips from '../components/PatternChips.js'
 import EntryViewer from '../components/EntryViewer.js'
 import PatternList from '../components/PatternList.js'
 
@@ -29,11 +28,11 @@ export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
     }
   }
 
-  function handleFilterToggle(domain) {
+  function handleFilterToggle(patternId) {
     setActiveFilters(prev =>
-      prev.includes(domain)
-        ? prev.filter(d => d !== domain)
-        : [...prev, domain]
+      prev.includes(patternId)
+        ? prev.filter(id => id !== patternId)
+        : [...prev, patternId]
     )
   }
 
@@ -67,8 +66,7 @@ export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
   }
 
   function handlePatternDelete(patternId) {
-    const deleted = trackedPatterns.find(p => p.id === patternId)
-    if (deleted) setActiveFilters(prev => prev.filter(d => d !== deleted.domain))
+    setActiveFilters(prev => prev.filter(id => id !== patternId))
     if (onPatternDeleted) onPatternDeleted()
   }
 
@@ -89,6 +87,9 @@ export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
           onDaySelect=${handleDaySelect}
           onPrevMonth=${handlePrevMonth}
           onNextMonth=${handleNextMonth}
+          patterns=${trackedPatterns}
+          onToggle=${handleFilterToggle}
+          onDelete=${handlePatternDelete}
         />
 
         ${selectedDate && selectedEntries.length > 0 && html`
@@ -100,13 +101,6 @@ export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
             onRecapGenerated=${handleRecapGenerated}
           />
         `}
-
-        <${PatternChips}
-          patterns=${trackedPatterns}
-          activeFilters=${activeFilters}
-          onToggle=${handleFilterToggle}
-          onDelete=${handlePatternDelete}
-        />
 
         <div class="mv-divider">
           <div class="mv-div-line"></div>

@@ -284,18 +284,27 @@ export function elevatePattern(keyword, domain) {
   }
 }
 
-export function addCustomPattern(name) {
+export function addCustomPattern(name, domain = 'custom') {
   try {
     const data = getPatternData()
-    data.customPatterns.push({
+    const exists = data.trackedPatterns.some(
+      p => p.name.toLowerCase() === name.toLowerCase()
+    )
+    if (exists) return
+    data.trackedPatterns.push({
       id: generateId(),
       name,
-      createdAt: new Date().toISOString(),
-      loggedDates: []
+      domain: domain || 'custom',
+      firstSeen: getTodayString(),
+      lastSeen: getTodayString(),
+      totalCount: 0,
+      recentCount: 0,
+      source: 'user_requested',
+      isTracked: true,
     })
     savePatternData(data)
   } catch(e) {
-    console.error('Vera: addCustomPattern failed:', e)
+    console.warn('addCustomPattern failed:', e)
   }
 }
 
