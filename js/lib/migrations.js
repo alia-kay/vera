@@ -1,10 +1,20 @@
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 const VERSION_KEY = 'vera_schema_version'
 
 // migrations[N] transforms data from version N-1 to version N
 // Each function must be safe to run on partial or missing data
 const migrations = {}
+
+// v2: grow tab was a placeholder; reset vera_grow to new schema
+// (items, suggestion, notice, addCounter, nextNoticeAt)
+migrations[2] = function() {
+  try {
+    localStorage.removeItem('vera_grow')
+  } catch(e) {
+    console.warn('Migration 2 failed:', e)
+  }
+}
 
 // Example of how future migrations will look:
 // migrations[2] = function() {

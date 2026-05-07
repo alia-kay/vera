@@ -6,6 +6,10 @@ import {
   getRecentEntries,
   addCustomPattern,
   getTodayString,
+  addToList,
+  markListItemDone,
+  getGrowItems,
+  getUserProfile,
 } from './storage.js'
 
 // ─── Provider config ──────────────────────────────────────────────────────────
@@ -70,12 +74,29 @@ export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONV
 // ─── Response parsing ─────────────────────────────────────────────────────────
 
 export function parseVeraResponse(rawResponse) {
-  const trackMatch  = rawResponse.match(/\[TRACK:\s*(.+?)\s*\|\s*domain:\s*(.+?)\]/i)
-  const displayText = rawResponse.replace(/\[TRACK:.*?\]/gi, '').trim()
-  const newPattern  = trackMatch
+  const trackMatch = rawResponse.match(/\[TRACK:\s*(.+?)\s*\|\s*domain:\s*(.+?)\]/i)
+  const doneMatch  = rawResponse.match(/\[DONE:\s*(.+?)\]/i)
+  const addMatch   = rawResponse.match(/\[ADD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
+
+  const displayText = rawResponse
+    .replace(/\[TRACK:.*?\]/gi, '')
+    .replace(/\[DONE:.*?\]/gi, '')
+    .replace(/\[ADD:.*?\]/gi, '')
+    .trim()
+
+  const newPattern = trackMatch
     ? { name: trackMatch[1].trim(), domain: trackMatch[2].trim().toLowerCase() }
     : null
-  return { displayText, newPattern }
+
+  const doneTitle = doneMatch ? doneMatch[1].trim() : null
+
+  const newListItem = addMatch ? {
+    title:  addMatch[1].trim(),
+    type:   addMatch[2]?.trim() || 'Other',
+    author: addMatch[3]?.trim() || null,
+  } : null
+
+  return { displayText, newPattern, doneTitle, newListItem }
 }
 
 // ─── Send message ─────────────────────────────────────────────────────────────
@@ -117,14 +138,14 @@ export async function sendMessage(userText, allMessages = []) {
   }
 
   const rawResponse = await callAI(systemPrompt, historyMessages)
-  const { displayText, newPattern } = parseVeraResponse(rawResponse)
+  const { displayText, newPattern, doneTitle, newListItem } = parseVeraResponse(rawResponse)
 
   if (newPattern) {
     addCustomPattern(newPattern.name, newPattern.domain)
     if (DEBUG()) console.log('[Vera] new pattern tracked:', newPattern)
   }
 
-  return { displayText, newPattern }
+  return { displayText, newPattern, doneTitle, newListItem }
 }
 
 // ─── Summary regeneration ─────────────────────────────────────────────────────
@@ -289,6 +310,118 @@ No bullet points. No lists. Plain prose only.`
     return response.trim()
   } catch (e) {
     if (DEBUG()) console.warn('[Vera] Day summary generation failed:', e)
+    return null
+  }
+}
+
+// ─── Grow suggestion generation ──────────────────────────────────────────────
+
+export async function generateGrowSuggestion(listItems = [], recentEntries = []) {
+  const hasContext = recentEntries.length >= 3
+
+  const recentContext = recentEntries
+    .slice(0, 5)
+    .map(e => e.userText.slice(0, 120))
+    .join('\n')
+
+  const profile = getUserProfile()
+  const profileContext = [
+    profile.focusAreas?.length ? `Focus areas: ${profile.focusAreas.join(', ')}` : '',
+    profile.dayOneContext ? `About them: ${profile.dayOneContext.slice(0, 200)}` : '',
+  ].filter(Boolean).join('\n')
+
+  const alreadyInList = listItems.map(i => i.title).join(', ')
+
+  const contextSection = hasContext
+    ? `Recent conversations:\n${recentContext}`
+    : profileContext
+      ? `About this person (no conversation history yet):\n${profileContext}`
+      : ''
+
+  const prompt = `\
+Based on what you know about this person, suggest ONE book, film, podcast, or article they might find meaningful.
+
+${contextSection || '(no context available yet)'}
+
+Already in their list (do not suggest these):
+${alreadyInList || '(nothing yet)'}
+
+Return a JSON object:
+{
+  "title": "exact title",
+  "author": "author, host, director, or publication — whoever made it",
+  "type": "Book" | "Film" | "Podcast" | "Article" | "Other",
+  "reason": "one sentence in Vera's voice explaining why this feels right for them right now, or null if there is not enough context to write a specific reason"
+}
+
+${hasContext ? 'The reason must be specific to what they\'ve been sharing — not generic. Sound like a friend who\'s been paying attention.' : 'If using only profile data, write a reason based on their interests. If there is no meaningful context, set reason to null.'}
+Vera's voice: warm, direct, slightly imperfect. No exclamation points. No em dashes.
+
+Return only valid JSON. No preamble, no markdown fences.`
+
+  try {
+    const raw = await callAI(
+      'You are Vera. Return only valid JSON as instructed.',
+      [{ role: 'user', content: prompt }],
+      200
+    )
+    const clean = raw.replace(/```json|```/g, '').trim()
+    const result = JSON.parse(clean)
+    result.generatedAt = new Date().toISOString()
+    return result
+  } catch(e) {
+    console.warn('Grow suggestion generation failed:', e)
+    return null
+  }
+}
+
+// ─── Grow notice generation ───────────────────────────────────────────────────
+
+export async function generateGrowNotice(listItems = [], recentEntries = []) {
+  const recentContext = recentEntries
+    .slice(0, 8)
+    .map(e => e.userText.slice(0, 150))
+    .join('\n')
+
+  const listContext = listItems
+    .map(i => `${i.title}${i.author ? ' by ' + i.author : ''} (${i.type}) — ${i.status}`)
+    .join('\n')
+
+  const prompt = `\
+You are Vera. Read this person's recent conversations and their reading/watching list.
+Write ONE short observation — something you've genuinely noticed across what they've been engaging with.
+
+Recent conversations:
+${recentContext || '(no recent entries)'}
+
+Their list:
+${listContext || '(nothing in list yet)'}
+
+Rules:
+- One sentence or two at most
+- It should be a genuine observation — something that connects dots they haven't connected
+- It can be about any topic: intellectual themes, emotional patterns, recurring interests, contradictions
+- It should feel like a perceptive friend noticing something, not an algorithm summarising data
+- Vera's voice: warm, specific, slightly surprising. No exclamation points. No em dashes.
+- Do NOT start with "I noticed" or "I see" — start with the observation itself
+
+Good examples:
+"You keep returning to the idea of slowness — in what you read, in what you say you want."
+"Almost everything in your list is about how systems fail people. That's worth sitting with."
+"Six weeks of strategy reading, but every capture you write is about people, not processes."
+"You've been drawn to stories about people starting over. Something brewing there?"
+
+Return only the observation text. No quotes, no JSON, no explanation.`
+
+  try {
+    const response = await callAI(
+      'You are Vera. Write only the observation text as instructed.',
+      [{ role: 'user', content: prompt }],
+      100
+    )
+    return response.trim().replace(/^["']|["']$/g, '')
+  } catch(e) {
+    console.warn('Grow notice generation failed:', e)
     return null
   }
 }

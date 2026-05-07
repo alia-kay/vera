@@ -649,92 +649,106 @@ export function getLearningItemsByType(type) {
   return getLearningLog().filter(item => item.type === type)
 }
 
-// ─── Grow engine ──────────────────────────────────────────────────────────────
+// ─── Grow tab ─────────────────────────────────────────────────────────────────
 
-const DEFAULT_GROW = {
-  currentRecommendation: null,
-  observations: [],
-  lastRecommendationAt: null,
-  lastObservationAt: null,
-  entryCountAtLastRecommendation: 0
+const DEFAULT_GROW_DATA = {
+  items: [],
+  suggestion: null,
+  notice: null,
+  addCounter: 0,
+  nextNoticeAt: 2,
+  pendingNoticeGeneration: false,
 }
 
 export function getGrowData() {
-  return readJSON('vera_grow', { ...DEFAULT_GROW })
-}
-
-export function saveCurrentRecommendation(recommendation) {
-  try {
-    const data = getGrowData()
-    data.currentRecommendation = recommendation
-    data.lastRecommendationAt = new Date().toISOString()
-    data.entryCountAtLastRecommendation = getTotalEntryCount()
+  const data = readJSON('vera_grow', { ...DEFAULT_GROW_DATA })
+  // inline migration: 'recent' → 'finished'
+  if (data.items && data.items.some(i => i.status === 'recent')) {
+    data.items = data.items.map(i => i.status === 'recent' ? { ...i, status: 'finished' } : i)
     writeJSON('vera_grow', data)
-  } catch(e) {
-    console.error('Vera: saveCurrentRecommendation failed:', e)
   }
+  return data
 }
 
-export function dismissCurrentRecommendation() {
+export function saveGrowData(data) {
+  writeJSON('vera_grow', data)
+}
+
+export function getGrowItems() {
+  return getGrowData().items || []
+}
+
+export function addToList(item) {
   try {
     const data = getGrowData()
-    if (data.currentRecommendation) {
-      data.currentRecommendation.status = 'dismissed'
+    if (data.items.some(i => i.title.toLowerCase() === item.title.toLowerCase())) return
+    data.items.unshift(item)
+    data.addCounter = (data.addCounter || 0) + 1
+    if (data.addCounter >= (data.nextNoticeAt || 2)) {
+      data.addCounter = 0
+      data.nextNoticeAt = Math.random() > 0.5 ? 2 : 3
+      data.pendingNoticeGeneration = true
     }
-    writeJSON('vera_grow', data)
+    saveGrowData(data)
   } catch(e) {
-    console.error('Vera: dismissCurrentRecommendation failed:', e)
+    console.warn('addToList failed:', e)
   }
 }
 
-export function addRecommendationToLog(recommendationId) {
+export function getGrowSuggestion() {
+  return getGrowData().suggestion
+}
+
+export function saveGrowSuggestion(suggestion) {
   try {
     const data = getGrowData()
-    const rec = data.currentRecommendation
-    if (!rec || rec.id !== recommendationId) return
-    rec.status = 'added'
-    writeJSON('vera_grow', data)
-    addLearningItem({
-      id: generateId(),
-      date: getTodayString(),
-      title: rec.title,
-      type: rec.type,
-      author: rec.author || null,
-      capture: '',
-      tags: rec.triggerThemes || [],
-      source: 'vera',
-      veraRecommendationId: rec.id
-    })
+    data.suggestion = suggestion
+    saveGrowData(data)
   } catch(e) {
-    console.error('Vera: addRecommendationToLog failed:', e)
+    console.warn('saveGrowSuggestion failed:', e)
   }
 }
 
-export function addGrowthObservation(observation) {
+export function getGrowNotice() {
   try {
     const data = getGrowData()
-    data.observations.push(observation)
-    data.lastObservationAt = new Date().toISOString()
-    writeJSON('vera_grow', data)
+    if (!data.notice) return null
+    const age = (Date.now() - new Date(data.notice.generatedAt).getTime()) / 86400000
+    if (age > 7) {
+      data.notice = null
+      saveGrowData(data)
+      return null
+    }
+    return data.notice
   } catch(e) {
-    console.error('Vera: addGrowthObservation failed:', e)
+    return null
   }
 }
 
-export function getGrowthObservations() {
-  return getGrowData().observations
-}
-
-export function shouldGenerateNewRecommendation() {
+export function saveGrowNotice(text) {
   try {
     const data = getGrowData()
-    const rec = data.currentRecommendation
-    const noActiveRec = !rec || rec.status === 'dismissed'
-    if (!noActiveRec) return false
-    const entriesSinceLast = getTotalEntryCount() - (data.entryCountAtLastRecommendation || 0)
-    return entriesSinceLast >= 5
+    data.notice = { text, generatedAt: new Date().toISOString() }
+    data.pendingNoticeGeneration = false
+    saveGrowData(data)
   } catch(e) {
-    return false
+    console.warn('saveGrowNotice failed:', e)
+  }
+}
+
+export function markListItemDone(titleFragment) {
+  try {
+    const data = getGrowData()
+    const match = data.items.find(i =>
+      i.status === 'ahead' &&
+      i.title.toLowerCase().includes(titleFragment.toLowerCase())
+    )
+    if (!match) return
+    match.status = 'finished'
+    match.completedAt = new Date().toISOString()
+    saveGrowData(data)
+  } catch(e) {
+    console.warn('markListItemDone failed:', e)
   }
 }
 

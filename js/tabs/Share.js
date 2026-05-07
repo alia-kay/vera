@@ -6,6 +6,8 @@ import {
   shouldRegenerateSummary,
   elevatePatterns,
   recomputePatternCounts,
+  markListItemDone,
+  addToList,
 } from '../lib/storage.js'
 import { scanForSymptoms } from '../lib/scanner.js'
 import { sendMessage, regenerateSummary } from '../lib/api.js'
@@ -21,7 +23,7 @@ function formatTime(isoString) {
     .toLowerCase()
 }
 
-export default function ShareTab({ messages, setMessages, setActiveTab, onPatternAdded }) {
+export default function ShareTab({ messages, setMessages, setActiveTab, onPatternAdded, onListUpdated }) {
   const [inputText,  setInputText]  = React.useState('')
   const [isThinking, setIsThinking] = React.useState(false)
   const chatEndRef = React.useRef(null)
@@ -43,11 +45,29 @@ export default function ShareTab({ messages, setMessages, setActiveTab, onPatter
     setMessages(prev => [...prev, { type: 'user', text: userText, time: formatTime(now), id: entryId }])
 
     try {
-      const { displayText, newPattern } = await sendMessage(userText, messages)
+      const { displayText, newPattern, doneTitle, newListItem } = await sendMessage(userText, messages)
 
       setMessages(prev => [...prev, { type: 'vera', text: displayText, id: entryId + '_response' }])
 
       if (newPattern && onPatternAdded) onPatternAdded()
+
+      if (doneTitle) {
+        markListItemDone(doneTitle)
+        if (onListUpdated) onListUpdated()
+      }
+
+      if (newListItem) {
+        addToList({
+          id: generateId(),
+          title: newListItem.title,
+          author: newListItem.author,
+          type: newListItem.type,
+          status: 'ahead',
+          addedAt: new Date().toISOString(),
+          completedAt: null,
+        })
+        if (onListUpdated) onListUpdated()
+      }
 
       const { detected, freeTags } = scanForSymptoms(userText)
       saveEntry(getTodayString(), {

@@ -202,16 +202,17 @@ async function checkAndGenerateClosing(setMessages) {
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-const OTHER_TABS = {
-  grow: GrowTab,
-}
-
 function MainApp({ messages, setMessages }) {
   const [activeTab,       setActiveTab]       = React.useState('share')
   const [trackedPatterns, setTrackedPatterns] = React.useState(() => storageLib.getTrackedPatterns())
+  const [growListVersion, setGrowListVersion] = React.useState(0)
 
   function refreshPatterns() {
     setTrackedPatterns(storageLib.getTrackedPatterns())
+  }
+
+  function refreshGrowList() {
+    setGrowListVersion(v => v + 1)
   }
 
   if (activeTab === 'share') {
@@ -224,6 +225,7 @@ function MainApp({ messages, setMessages }) {
           setMessages=${setMessages}
           setActiveTab=${setActiveTab}
           onPatternAdded=${refreshPatterns}
+          onListUpdated=${refreshGrowList}
         />
       </div>
     `
@@ -256,19 +258,22 @@ function MainApp({ messages, setMessages }) {
     `
   }
 
-  const TabComponent = OTHER_TABS[activeTab]
-  return html`
-    <div style=${{ position: 'relative', minHeight: '100dvh' }}>
-      <div class="atmos"></div>
-      <${Header} />
-      <main class="content-area">
-        <div class="tab-content" key=${activeTab}>
-          <${TabComponent} />
-        </div>
-      </main>
-      <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
-    </div>
-  `
+  // Grow tab — full viewport with its own scroll container
+  if (activeTab === 'grow') {
+    return html`
+      <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        <div class="atmos"></div>
+        <${Header} />
+        <${GrowTab}
+          trackedPatterns=${trackedPatterns}
+          listVersion=${growListVersion}
+        />
+        <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
+      </div>
+    `
+  }
+
+  return null
 }
 
 function App() {
