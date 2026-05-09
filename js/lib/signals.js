@@ -8,6 +8,7 @@ export function computeSignals(todayMessages = []) {
     daysInactive,
     emotionalWeight: computeEmotionalWeight(todayMessages),
     questionFatigue: computeQuestionFatigue(todayMessages),
+    statementStreak: computeStatementStreak(todayMessages),
     memorySignal:    computeMemorySignal(),
     returningUser:   daysInactive >= 1,
   }
@@ -74,6 +75,22 @@ function computeQuestionFatigue(messages) {
   return fatigue
 }
 
+function computeStatementStreak(messages) {
+  const veraMessages = messages.filter(m => m.type === 'vera' && m.text)
+  if (veraMessages.length === 0) return 0
+
+  let streak = 0
+  for (let i = veraMessages.length - 1; i >= 0; i--) {
+    const hasQuestion = veraMessages[i].text.includes('?')
+    if (!hasQuestion) {
+      streak++
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
 function computeMemorySignal() {
   try {
     const entries = getRecentEntries(10)
@@ -88,6 +105,7 @@ export function formatSignals(signals, activeNudge = null) {
     `DAYS_INACTIVE: ${signals.daysInactive}`,
     `EMOTIONAL_WEIGHT: ${signals.emotionalWeight}`,
     `QUESTION_FATIGUE: ${signals.questionFatigue}`,
+    `STATEMENT_STREAK: ${signals.statementStreak}`,
     `MEMORY_SIGNAL: ${signals.memorySignal}`,
     `RETURNING_USER: ${signals.returningUser}`,
   ]
