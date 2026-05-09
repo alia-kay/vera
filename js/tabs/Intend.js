@@ -143,12 +143,17 @@ function getReviewStatusFor(periodKey, periodType, endDate) {
   return todayStr > endDate ? 'pending' : 'not-yet'
 }
 
-// ─── Month label for controls row ────────────────────────────────────────────
+// ─── Month label helpers ──────────────────────────────────────────────────────
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ]
+
+function getMonthLabelBig(year, month) {
+  const date = new Date(year, month - 1, 1)
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
 
 // ─── IntendTab ────────────────────────────────────────────────────────────────
 
@@ -161,6 +166,8 @@ export default function IntendTab() {
   const [displayMonth,     setDisplayMonth]     = React.useState(today.getMonth() + 1)
   const [expandedKey,      setExpandedKey]      = React.useState(() => getWeekKeyForDate(new Date()))
   const [reviewingWeekKey, setReviewingWeekKey] = React.useState(null)
+  const [intentionFilter,  setIntentionFilter]  = React.useState('all')
+  const [reviewFilter,     setReviewFilter]     = React.useState('all')
 
   const nowYear  = today.getFullYear()
   const nowMonth = today.getMonth() + 1
@@ -201,15 +208,27 @@ export default function IntendTab() {
     ? displayYear < nowYear
     : !(displayYear === nowYear && displayMonth === nowMonth)
 
-  const controlLabel = period === 'months'
-    ? String(displayYear)
-    : `${MONTH_NAMES[displayMonth - 1]} ${displayYear}`
+  const monthLabelBig = getMonthLabelBig(displayYear, displayMonth)
 
   // ─── Period list ────────────────────────────────────────────────────────────
 
   const periods = period === 'weeks'
     ? getWeeksForMonth(displayYear, displayMonth)
     : getMonthsToShow(displayYear, displayMonth)
+
+  const filteredPeriods = periods.filter(p => {
+    if (view === 'intentions') {
+      if (intentionFilter === 'filled') return !!getWeeklyIntention(p.periodKey)?.sentence
+      return true
+    }
+    if (view === 'reviews') {
+      const status = getReviewStatusFor(p.periodKey, p.periodType, p.endDate)
+      if (reviewFilter === 'done')    return status === 'done'
+      if (reviewFilter === 'pending') return status === 'pending'
+      return true
+    }
+    return true
+  })
 
   // ─── Card toggle ────────────────────────────────────────────────────────────
 
@@ -248,44 +267,95 @@ export default function IntendTab() {
 
       <div class="intend-scroll">
 
-        <div class="controls-row-1">
-          <div class="sub-nav">
-            <div
-              class=${`sub-nav-btn${view === 'intentions' ? ' active' : ''}`}
-              onClick=${() => setView('intentions')}
-            >Intentions</div>
-            <div class="sub-nav-sep">·</div>
-            <div
-              class=${`sub-nav-btn${view === 'reviews' ? ' active' : ''}`}
-              onClick=${() => setView('reviews')}
-            >Reviews</div>
+        <div class="v4-head">
+          <div class="v4-side-tabs">
+            <button
+              class=${`v4-side-tab${view === 'intentions' ? ' active' : ''}`}
+              onClick=${() => { setView('intentions'); setExpandedKey(null) }}
+            >
+              <span class="v4-side-tab-label">Intentions</span>
+            </button>
+            <button
+              class=${`v4-side-tab${view === 'reviews' ? ' active' : ''}`}
+              onClick=${() => { setView('reviews'); setExpandedKey(null) }}
+            >
+              <span class="v4-side-tab-label">Reviews</span>
+            </button>
+          </div>
+
+          <div class="v4-cal-side">
+            <div class="v4-month-big">
+              <span class="v4-month-arrow" onClick=${handlePrevMonth}>‹</span>
+              <span class="v4-month-label-big">${monthLabelBig}</span>
+              <span
+                class="v4-month-arrow"
+                onClick=${canGoNext ? handleNextMonth : null}
+                style=${{ opacity: canGoNext ? 0.55 : 0.2, cursor: canGoNext ? 'pointer' : 'default' }}
+              >›</span>
+            </div>
+            <div class="v4-toggle-big">
+              <div
+                class=${`v4-toggle-big-btn${period === 'weeks' ? ' active' : ''}`}
+                onClick=${() => { setPeriod('weeks'); setExpandedKey(null) }}
+              >Weeks</div>
+              <div
+                class=${`v4-toggle-big-btn${period === 'months' ? ' active' : ''}`}
+                onClick=${() => { setPeriod('months'); setExpandedKey(null) }}
+              >Month</div>
+            </div>
           </div>
         </div>
 
-        <div class="controls-row-2">
-          <div class="month-nav">
-            <div class="month-arrow" onClick=${handlePrevMonth}>‹</div>
-            <div class="month-label">${controlLabel}</div>
+        <div class="v4-filter-bar">
+          ${view === 'intentions' && html`
             <div
-              class="month-arrow"
-              onClick=${canGoNext ? handleNextMonth : null}
-              style=${{ opacity: canGoNext ? 0.6 : 0.2, cursor: canGoNext ? 'pointer' : 'default' }}
-            >›</div>
-          </div>
-
-          <div class="toggle-wrap">
+              class=${`v4-filter${intentionFilter === 'all' ? ' active' : ''}`}
+              onClick=${() => setIntentionFilter('all')}
+            >All</div>
             <div
-              class=${`toggle-btn${period === 'weeks' ? ' active' : ''}`}
-              onClick=${() => { setPeriod('weeks'); setExpandedKey(null) }}
-            >Weeks</div>
+              class=${`v4-filter${intentionFilter === 'filled' ? ' active' : ''}`}
+              onClick=${() => setIntentionFilter('filled')}
+            >Filled</div>
+          `}
+          ${view === 'reviews' && html`
             <div
-              class=${`toggle-btn${period === 'months' ? ' active' : ''}`}
-              onClick=${() => { setPeriod('months'); setExpandedKey(null) }}
-            >Month</div>
-          </div>
+              class=${`v4-filter${reviewFilter === 'all' ? ' active' : ''}`}
+              onClick=${() => setReviewFilter('all')}
+            >All</div>
+            <div
+              class=${`v4-filter${reviewFilter === 'done' ? ' active' : ''}`}
+              onClick=${() => setReviewFilter('done')}
+            >Done</div>
+            <div
+              class=${`v4-filter${reviewFilter === 'pending' ? ' active' : ''}`}
+              onClick=${() => setReviewFilter('pending')}
+            >Pending</div>
+          `}
         </div>
 
-        ${periods.map(p => html`
+        ${filteredPeriods.length === 0 && html`
+          <div style=${{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: '16px',
+            fontStyle: 'italic',
+            color: 'var(--text-dim)',
+            opacity: 0.5,
+            textAlign: 'center',
+            padding: '24px 16px',
+            lineHeight: 1.6,
+          }}>
+            ${view === 'intentions' && intentionFilter === 'filled'
+              ? 'No intentions set yet this month.'
+              : view === 'reviews' && reviewFilter === 'done'
+              ? 'No reviews completed yet.'
+              : view === 'reviews' && reviewFilter === 'pending'
+              ? 'No pending reviews.'
+              : 'Nothing to show.'
+            }
+          </div>
+        `}
+
+        ${filteredPeriods.map(p => html`
           <${WeekCard}
             key=${p.periodKey}
             periodKey=${p.periodKey}

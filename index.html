@@ -1071,8 +1071,141 @@
       background: rgba(255,255,255,0.06);
     }
 
+    /* ─── INTEND V5 HEADER ─── */
+    .v4-head {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 10px;
+      padding: 6px 16px 16px;
+      border-bottom: 0.5px solid var(--border);
+      margin-bottom: 14px;
+      align-items: stretch;
+    }
+    .v4-side-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .v4-cal-side {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      justify-content: center;
+      align-items: center;
+    }
+    .v4-side-tab {
+      appearance: none;
+      background: transparent;
+      border: 0.5px solid var(--border);
+      border-radius: 11px;
+      padding: 14px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-align: center;
+      color: var(--text-dim);
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      flex: 1;
+      min-height: 52px;
+    }
+    .v4-side-tab:hover { border-color: rgba(232,160,48,0.25); }
+    .v4-side-tab.active {
+      border-color: rgba(232,160,48,0.5);
+      background: rgba(232,160,48,0.07);
+      color: var(--text);
+    }
+    .v4-side-tab-label {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .v4-month-big {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-width: 0;
+      padding: 2px 0;
+    }
+    .v4-month-big .v4-month-arrow {
+      font-size: 18px;
+      color: var(--text-dim);
+      cursor: pointer;
+      opacity: 0.55;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .v4-month-label-big {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: 22px;
+      color: var(--text);
+      letter-spacing: 0.01em;
+      text-align: center;
+      white-space: nowrap;
+      padding: 0 2px;
+    }
+    .v4-toggle-big {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+    .v4-toggle-big-btn {
+      text-align: center;
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      padding: 4px 0;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid transparent;
+    }
+    .v4-toggle-big-btn.active {
+      color: var(--amber);
+      border-bottom-color: rgba(232,160,48,0.55);
+    }
+
+    /* ─── INTEND V5 FILTER BAR ─── */
+    .v4-filter-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 0 16px 14px;
+      margin-top: -4px;
+    }
+    .v4-filter {
+      font-family: 'Cinzel', serif;
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 12px;
+      border: 0.5px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      background: transparent;
+    }
+    .v4-filter:hover { color: var(--text); }
+    .v4-filter.active {
+      border-color: rgba(232,160,48,0.4);
+      background: rgba(232,160,48,0.08);
+      color: var(--amber);
+    }
+
     .week-card {
-      margin: 0 16px 8px;
+      margin: 0 16px 10px;
       border: 0.5px solid var(--border);
       border-radius: 12px;
       background: var(--surface);
@@ -1083,7 +1216,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 13px 16px;
+      padding: 15px 16px;
       cursor: pointer;
       gap: 8px;
     }
@@ -1091,11 +1224,13 @@
     .week-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
 
     .week-date-range {
-      font-family: 'Cinzel', serif;
-      font-size: 9px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-dim);
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 14px;
+      letter-spacing: 0.005em;
+      text-transform: none;
+      color: var(--text);
       white-space: nowrap;
     }
 
@@ -1128,7 +1263,7 @@
       margin-right: 4px;
     }
     .week-no-intention {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-dim);
       opacity: 0.45;
       flex: 1;
