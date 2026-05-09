@@ -12,11 +12,27 @@ function formatRelativeDate(isoString) {
   return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function GrowNoticesCard({ notice }) {
+export default function GrowNoticesCard({ notice, onDismiss }) {
   if (!notice) return null
 
   return html`
-    <div class="g2-notices-card">
+    <div class="g2-notices-card" style=${{ position: 'relative' }}>
+      <button
+        onClick=${onDismiss}
+        style=${{
+          position: 'absolute',
+          top: '10px',
+          right: '12px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--text-muted)',
+          fontSize: '16px',
+          lineHeight: 1,
+          padding: '4px',
+          opacity: 0.6,
+        }}
+      >✕</button>
       <div class="g2-notices-label">Vera notices</div>
       <div class="obs-diamond-row">
         <div class="obs-diamond"></div>

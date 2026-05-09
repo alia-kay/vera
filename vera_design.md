@@ -88,7 +88,7 @@ Header uses mask-image gradient to fade bottom edge:
 
 ## Bottom navigation
 
-Four tabs in order: Share · Intend · Remember · Grow
+Four tabs in order: Share · Remember · Intend · Grow
 
 Bar specs:
 - Background: --nav-bg

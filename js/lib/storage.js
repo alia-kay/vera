@@ -681,7 +681,6 @@ export function getGrowItems() {
 export function addToList(item) {
   try {
     const data = getGrowData()
-    if (data.items.some(i => i.title.toLowerCase() === item.title.toLowerCase())) return
     data.items.unshift(item)
     data.addCounter = (data.addCounter || 0) + 1
     if (data.addCounter >= (data.nextNoticeAt || 2)) {
@@ -736,20 +735,87 @@ export function saveGrowNotice(text) {
   }
 }
 
-export function markListItemDone(titleFragment) {
+export function deleteListItem(itemId) {
   try {
     const data = getGrowData()
-    const match = data.items.find(i =>
-      i.status === 'ahead' &&
-      i.title.toLowerCase().includes(titleFragment.toLowerCase())
-    )
-    if (!match) return
-    match.status = 'finished'
-    match.completedAt = new Date().toISOString()
+    data.items = data.items.filter(i => i.id !== itemId)
     saveGrowData(data)
+  } catch (e) { console.warn('deleteListItem failed:', e) }
+}
+
+export function clearGrowNotice() {
+  try {
+    const data = getGrowData()
+    data.notice = null
+    saveGrowData(data)
+  } catch(e) {
+    console.warn('clearGrowNotice failed:', e)
+  }
+}
+
+export function markListItemDone(doneItem) {
+  try {
+    const data  = getGrowData()
+    const { title, type = 'Book', author = null } = doneItem
+
+    const existing = data.items.find(i =>
+      i.title.toLowerCase().includes(title.toLowerCase()) ||
+      title.toLowerCase().includes(i.title.toLowerCase())
+    )
+
+    if (existing) {
+      existing.status      = 'finished'
+      existing.completedAt = new Date().toISOString()
+    } else {
+      data.items.unshift({
+        id:          generateId(),
+        title,
+        author,
+        type,
+        status:      'finished',
+        addedAt:     new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      })
+    }
+
+    saveGrowData(data)
+    addPendingFollowUp(title, type)
   } catch(e) {
     console.warn('markListItemDone failed:', e)
   }
+}
+
+export function removeFromList(titleFragment) {
+  try {
+    const data = getGrowData()
+    data.items = data.items.filter(i =>
+      !i.title.toLowerCase().includes(titleFragment.toLowerCase())
+    )
+    saveGrowData(data)
+  } catch(e) {
+    console.warn('removeFromList failed:', e)
+  }
+}
+
+export function addPendingFollowUp(title, type) {
+  try {
+    const data = getGrowData()
+    if (!data.pendingFollowUps) data.pendingFollowUps = []
+    if (!data.pendingFollowUps.some(f => f.title === title)) {
+      data.pendingFollowUps.push({ title, type, addedAt: new Date().toISOString() })
+    }
+    saveGrowData(data)
+  } catch(e) {}
+}
+
+export function popPendingFollowUp() {
+  try {
+    const data = getGrowData()
+    if (!data.pendingFollowUps?.length) return null
+    const next = data.pendingFollowUps.shift()
+    saveGrowData(data)
+    return next
+  } catch(e) { return null }
 }
 
 // ─── Living summary ───────────────────────────────────────────────────────────
@@ -810,6 +876,32 @@ export function getEntriesForWeek(weekKey) {
     console.error('Vera: getEntriesForWeek failed:', e)
     return []
   }
+}
+
+// ─── Nudge state ──────────────────────────────────────────────────────────────
+
+export function getNudgeState() {
+  try {
+    const raw = localStorage.getItem('vera_nudge_state')
+    return raw ? JSON.parse(raw) : {
+      askedReview: [], askedIntention: [],
+      askedMonthlyReview: [], askedMonthlyIntention: []
+    }
+  } catch(e) {
+    return { askedReview: [], askedIntention: [], askedMonthlyReview: [], askedMonthlyIntention: [] }
+  }
+}
+
+export function saveNudgeState(state) {
+  try { localStorage.setItem('vera_nudge_state', JSON.stringify(state)) }
+  catch(e) { console.warn('saveNudgeState failed:', e) }
+}
+
+export function markNudgeAsked(type, key) {
+  const state = getNudgeState()
+  if (!state[type]) state[type] = []
+  if (!state[type].includes(key)) state[type].push(key)
+  saveNudgeState(state)
 }
 
 // ─── Export scanner for convenience ──────────────────────────────────────────

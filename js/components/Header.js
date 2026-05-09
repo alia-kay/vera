@@ -9,28 +9,6 @@ function formatDate() {
   return `${day} · ${mon} ${date}`
 }
 
-const ornamentStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-}
-
-const lineStyle = {
-  width: '12px',
-  height: '0.5px',
-  background: 'var(--amber)',
-  opacity: 0.35,
-}
-
-const diamondStyle = {
-  width: '4px',
-  height: '4px',
-  border: '0.5px solid var(--amber)',
-  transform: 'rotate(45deg)',
-  opacity: 0.35,
-  flexShrink: 0,
-}
-
 export default function Header() {
   return html`
     <header style=${{
@@ -58,21 +36,14 @@ export default function Header() {
         textTransform: 'uppercase',
       }}>vera</span>
 
-      <div style=${{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style=${{
-          fontFamily: "'Cinzel', serif",
-          fontSize: '10px',
-          fontWeight: 300,
-          color: 'var(--text-dim)',
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
-        }}>${formatDate()}</span>
-        <div style=${ornamentStyle}>
-          <div style=${lineStyle}></div>
-          <div style=${diamondStyle}></div>
-          <div style=${lineStyle}></div>
-        </div>
-      </div>
+      <span style=${{
+        fontFamily: "'Cinzel', serif",
+        fontSize: '10px',
+        fontWeight: 300,
+        color: 'var(--text-dim)',
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+      }}>${formatDate()}</span>
     </header>
   `
 }

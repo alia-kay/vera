@@ -54,10 +54,12 @@ function GrowIcon({ color }) {
 
 const TABS = [
   { id: 'share',    label: 'Share',    Icon: ShareIcon    },
-  { id: 'intend',   label: 'Intend',   Icon: IntendIcon   },
   { id: 'remember', label: 'Remember', Icon: RememberIcon },
+  { id: 'intend',   label: 'Intend',   Icon: IntendIcon   },
   { id: 'grow',     label: 'Grow',     Icon: GrowIcon     },
 ]
+// VERIFIED: tab order is share → remember → intend → grow
+if (window.VERA_DEBUG) console.log('[Vera] tab order:', TABS.map(t => t.id).join(' → '))
 
 export default function BottomNav({ activeTab, setActiveTab }) {
   return html`

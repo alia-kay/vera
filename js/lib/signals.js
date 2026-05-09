@@ -82,14 +82,24 @@ function computeMemorySignal() {
 }
 
 // Format signals as a readable block to inject into the system prompt
-export function formatSignals(signals) {
-  return [
+export function formatSignals(signals, activeNudge = null) {
+  const lines = [
     '--- Signals ---',
     `DAYS_INACTIVE: ${signals.daysInactive}`,
     `EMOTIONAL_WEIGHT: ${signals.emotionalWeight}`,
     `QUESTION_FATIGUE: ${signals.questionFatigue}`,
     `MEMORY_SIGNAL: ${signals.memorySignal}`,
     `RETURNING_USER: ${signals.returningUser}`,
-    '--- End signals ---',
-  ].join('\n')
+  ]
+
+  if (activeNudge) {
+    lines.push(`ACTIVE_NUDGE: ${activeNudge.type}`)
+    lines.push(`If user responds positively to this nudge, end your response with:`)
+    lines.push(`[NUDGE_YES: ${activeNudge.type}]`)
+    lines.push(`If user declines or changes subject, end with:`)
+    lines.push(`[NUDGE_NO: ${activeNudge.type}]`)
+  }
+
+  lines.push('--- End signals ---')
+  return lines.join('\n')
 }

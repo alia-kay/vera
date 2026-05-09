@@ -10,6 +10,11 @@ import {
   markListItemDone,
   getGrowItems,
   getUserProfile,
+  getWeeklyIntention,
+  getMonthlyIntention,
+  getTrackedPatterns,
+  getWeekKey,
+  getMonthKey,
 } from './storage.js'
 
 // ─── Provider config ──────────────────────────────────────────────────────────
@@ -28,15 +33,54 @@ const DEBUG = () => localStorage.getItem('vera_debug') === 'true'
 
 // ─── Core API call ────────────────────────────────────────────────────────────
 
-export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION) {
-  if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
+// Parse SSE stream, call onChunk for each text delta, return full text
+async function readStream(response, onChunk) {
+  const reader  = response.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+  let buffer   = ''
 
-  const body = {
-    model: AI_MODEL,
-    max_tokens: maxTokens,
-    system: systemPrompt,
-    messages: messages,
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() // keep incomplete last line in buffer
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') continue
+      try {
+        const parsed = JSON.parse(data)
+        if (
+          parsed.type === 'content_block_delta' &&
+          parsed.delta?.type === 'text_delta' &&
+          parsed.delta?.text
+        ) {
+          const chunk = parsed.delta.text
+          fullText += chunk
+          onChunk(chunk)
+        }
+      } catch (e) { /* skip malformed SSE lines */ }
+    }
   }
+
+  return fullText
+}
+
+// Collect full stream without callback (for non-chat calls)
+async function collectStream(response) {
+  let fullText = ''
+  await readStream(response, chunk => { fullText += chunk })
+  return fullText
+}
+
+// onChunk(text) is called with each text fragment as it streams.
+// Pass null/undefined for non-chat calls (summary, review, suggest).
+export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION, onChunk = null) {
+  if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
 
   if (DEBUG()) {
     console.group('[Vera] callAI')
@@ -45,7 +89,7 @@ export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONV
     console.groupEnd()
   }
 
-  const res = await fetch(AI_ENDPOINT, {
+  const response = await fetch(AI_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -53,42 +97,65 @@ export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONV
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: AI_MODEL,
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages,
+      stream: true,
+    }),
   })
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => res.statusText)
-    throw new Error(`AI request failed (${res.status}): ${err}`)
+  if (!response.ok) {
+    const err = await response.text().catch(() => response.statusText)
+    throw new Error(`AI request failed (${response.status}): ${err}`)
   }
 
-  const data = await res.json()
-  const text = data?.content?.[0]?.text
+  const fullText = onChunk
+    ? await readStream(response, onChunk)
+    : await collectStream(response)
 
-  if (!text) throw new Error('AI returned an empty response')
+  if (DEBUG()) console.log('[Vera] full response:', fullText)
 
-  if (DEBUG()) console.log('[Vera] raw response:', text)
-
-  return text
+  return fullText
 }
 
 // ─── Response parsing ─────────────────────────────────────────────────────────
 
 export function parseVeraResponse(rawResponse) {
-  const trackMatch = rawResponse.match(/\[TRACK:\s*(.+?)\s*\|\s*domain:\s*(.+?)\]/i)
-  const doneMatch  = rawResponse.match(/\[DONE:\s*(.+?)\]/i)
-  const addMatch   = rawResponse.match(/\[ADD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
+  const trackMatch    = rawResponse.match(/\[TRACK:\s*(.+?)\s*\|\s*domain:\s*(.+?)\]/i)
+  const doneMatch     = rawResponse.match(/\[DONE:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
+  const aheadMatch    = rawResponse.match(/\[AHEAD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
+  const addMatch      = rawResponse.match(/\[ADD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
+  const removeMatch   = rawResponse.match(/\[REMOVE:\s*(.+?)\]/i)
+  const nudgeYesMatch = rawResponse.match(/\[NUDGE_YES:\s*(.+?)\]/i)
+  const nudgeNoMatch  = rawResponse.match(/\[NUDGE_NO:\s*(.+?)\]/i)
 
   const displayText = rawResponse
     .replace(/\[TRACK:.*?\]/gi, '')
     .replace(/\[DONE:.*?\]/gi, '')
+    .replace(/\[AHEAD:.*?\]/gi, '')
     .replace(/\[ADD:.*?\]/gi, '')
+    .replace(/\[REMOVE:.*?\]/gi, '')
+    .replace(/\[NUDGE_YES:.*?\]/gi, '')
+    .replace(/\[NUDGE_NO:.*?\]/gi, '')
     .trim()
 
   const newPattern = trackMatch
     ? { name: trackMatch[1].trim(), domain: trackMatch[2].trim().toLowerCase() }
     : null
 
-  const doneTitle = doneMatch ? doneMatch[1].trim() : null
+  const doneItem = doneMatch ? {
+    title:  doneMatch[1].trim(),
+    type:   doneMatch[2]?.trim() || 'Book',
+    author: doneMatch[3]?.trim() || null,
+  } : null
+
+  const aheadItem = aheadMatch ? {
+    title:  aheadMatch[1].trim(),
+    type:   aheadMatch[2]?.trim() || 'Book',
+    author: aheadMatch[3]?.trim() || null,
+  } : null
 
   const newListItem = addMatch ? {
     title:  addMatch[1].trim(),
@@ -96,12 +163,16 @@ export function parseVeraResponse(rawResponse) {
     author: addMatch[3]?.trim() || null,
   } : null
 
-  return { displayText, newPattern, doneTitle, newListItem }
+  const removeTitle = removeMatch   ? removeMatch[1].trim()   : null
+  const nudgeYes    = nudgeYesMatch ? nudgeYesMatch[1].trim() : null
+  const nudgeNo     = nudgeNoMatch  ? nudgeNoMatch[1].trim()  : null
+
+  return { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo }
 }
 
 // ─── Send message ─────────────────────────────────────────────────────────────
 
-export async function sendMessage(userText, allMessages = []) {
+export async function sendMessage(userText, allMessages = [], activeNudge = null, onChunk = null) {
   // Filter to today's conversation only — gives Vera full memory of today's thread
   const todayStr = getTodayString()
   let todayStartIdx = 0
@@ -112,7 +183,7 @@ export async function sendMessage(userText, allMessages = []) {
 
   // Compute signals and build final system prompt
   const signals      = computeSignals(todayMessages)
-  const signalsBlock = formatSignals(signals)
+  const signalsBlock = formatSignals(signals, activeNudge)
   const systemPrompt = buildContextBlock() + '\n\n' + signalsBlock
 
   // Build alternating user/assistant turns from today's history
@@ -137,15 +208,15 @@ export async function sendMessage(userText, allMessages = []) {
     console.groupEnd()
   }
 
-  const rawResponse = await callAI(systemPrompt, historyMessages)
-  const { displayText, newPattern, doneTitle, newListItem } = parseVeraResponse(rawResponse)
+  const rawResponse = await callAI(systemPrompt, historyMessages, MAX_TOKENS_CONVERSATION, onChunk)
+  const { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo } = parseVeraResponse(rawResponse)
 
   if (newPattern) {
     addCustomPattern(newPattern.name, newPattern.domain)
     if (DEBUG()) console.log('[Vera] new pattern tracked:', newPattern)
   }
 
-  return { displayText, newPattern, doneTitle, newListItem }
+  return { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo }
 }
 
 // ─── Summary regeneration ─────────────────────────────────────────────────────
@@ -279,33 +350,42 @@ export async function generateDaySummary(entries) {
   if (!entries || entries.length === 0) return null
 
   const conversationText = entries
-    .filter(e => e.userText && e.aiResponse && e.type !== 'vera_closing')
-    .map(e => `Person: ${e.userText}\nVera: ${e.aiResponse}`)
+    .filter(e => e.userText && e.type !== 'vera_closing')
+    .map(e => e.userText)
     .join('\n\n')
 
   if (!conversationText.trim()) return null
 
   const prompt = `\
-Read this conversation and write a brief recap of what was shared and discussed.
+Read what this person shared today and write a brief day recap.
 
 ${conversationText}
 
-Write 2-3 sentences in third person that capture:
-- what was on the person's mind that day
-- the emotional texture of the conversation
-- anything significant that came up
+Write in second person ("you", not "they" or "the person").
+2-3 sentences maximum. Make it slightly philosophical — not just a summary of events,
+but a reflection on what the day held. Name the emotional texture, not just the facts.
 
-Write warmly and specifically — reference what actually happened, not generic observations.
-This recap will be shown to the person when they look back at this day in their calendar.
+Then on a new line after "---", write ONE short reflection suggestion.
+This is an invitation to think further — a question or a gentle prompt.
+It should feel like something worth sitting with, not a therapy exercise.
 
-Do not start with "The person..." — just describe what happened naturally.
-No bullet points. No lists. Plain prose only.`
+Format:
+[2-3 sentence recap]
+---
+[one reflection suggestion]
+
+Example:
+"Today held a lot of invisible weight — the kind that builds in silence and only shows up when you stop moving. Something about being unseen in a room full of people seems to be sitting with you."
+---
+"What would it have felt like to say one true thing in that meeting?"
+
+Keep it warm, specific, and human. No clinical language. No bullet points.`
 
   try {
     const response = await callAI(
-      'Write a warm, specific 2-3 sentence recap of this conversation.',
+      'Write a warm, philosophical 2-3 sentence day recap followed by one reflection suggestion.',
       [{ role: 'user', content: prompt }],
-      150
+      200
     )
     return response.trim()
   } catch (e) {
@@ -317,60 +397,93 @@ No bullet points. No lists. Plain prose only.`
 // ─── Grow suggestion generation ──────────────────────────────────────────────
 
 export async function generateGrowSuggestion(listItems = [], recentEntries = []) {
-  const hasContext = recentEntries.length >= 3
+  const profile          = getUserProfile()
+  const today            = new Date()
+  const weekKey          = getWeekKey(today)
+  const monthKey         = getMonthKey(today)
+  const weeklyIntention  = getWeeklyIntention(weekKey)
+  const monthlyIntention = getMonthlyIntention(monthKey)
+  const trackedPatterns  = getTrackedPatterns()
+  const alreadyInList    = listItems.map(i => i.title).join(', ')
 
-  const recentContext = recentEntries
-    .slice(0, 5)
-    .map(e => e.userText.slice(0, 120))
-    .join('\n')
+  let contextSignal = ''
+  let signalType    = 'general'
 
-  const profile = getUserProfile()
-  const profileContext = [
-    profile.focusAreas?.length ? `Focus areas: ${profile.focusAreas.join(', ')}` : '',
-    profile.dayOneContext ? `About them: ${profile.dayOneContext.slice(0, 200)}` : '',
-  ].filter(Boolean).join('\n')
+  // Priority 1: Active intentions mentioning learning/reading/watching
+  const intentionText = [weeklyIntention?.sentence, monthlyIntention?.sentence]
+    .filter(Boolean).join(' ')
+  if (intentionText && /read|book|learn|study|watch|listen|podcast|film|understand|explore/i.test(intentionText)) {
+    contextSignal = `Their current intention: "${intentionText}"`
+    signalType = 'intention'
+  }
 
-  const alreadyInList = listItems.map(i => i.title).join(', ')
+  // Priority 2: Strong patterns (3+ recent occurrences)
+  if (!contextSignal && trackedPatterns.length > 0) {
+    const strongPattern = trackedPatterns
+      .sort((a, b) => (b.recentCount || 0) - (a.recentCount || 0))
+      .find(p => (p.recentCount || 0) >= 3)
+    if (strongPattern) {
+      contextSignal = `A recurring pattern in their life: "${strongPattern.name}" (${strongPattern.recentCount} times recently)`
+      signalType = 'pattern'
+    }
+  }
 
-  const contextSection = hasContext
-    ? `Recent conversations:\n${recentContext}`
-    : profileContext
-      ? `About this person (no conversation history yet):\n${profileContext}`
-      : ''
+  // Priority 3: Recent conversation context
+  if (!contextSignal && recentEntries.length >= 3) {
+    contextSignal = `Recent conversations:\n${recentEntries
+      .slice(0, 4).map(e => e.userText.slice(0, 120)).join('\n')}`
+    signalType = 'conversation'
+  }
+
+  // Priority 4: Onboarding profile fallback
+  if (!contextSignal) {
+    const focusStr    = profile?.focusAreas?.join(', ') || ''
+    const interestStr = profile?.dayOneContext?.slice(0, 200) || ''
+    if (focusStr || interestStr) {
+      contextSignal = `What this person cares about: ${[focusStr, interestStr].filter(Boolean).join(' — ')}`
+      signalType = 'profile'
+    }
+  }
+
+  const reasonGuidance = signalType === 'general'
+    ? `reason: Return null — no specific context to draw from.`
+    : `reason: One sentence only. What is this about and why it might resonate. Content-first — describe the core idea or angle briefly. Return null if the connection feels forced.`
 
   const prompt = `\
-Based on what you know about this person, suggest ONE book, film, podcast, or article they might find meaningful.
+Suggest ONE book, film, podcast, or article for this person.
 
-${contextSection || '(no context available yet)'}
+${contextSignal || 'No specific context — suggest something broadly valuable.'}
 
 Already in their list (do not suggest these):
 ${alreadyInList || '(nothing yet)'}
 
-Return a JSON object:
+Return JSON:
 {
   "title": "exact title",
-  "author": "author, host, director, or publication — whoever made it",
+  "author": "author, host, director, or publication",
   "type": "Book" | "Film" | "Podcast" | "Article" | "Other",
-  "reason": "one sentence in Vera's voice explaining why this feels right for them right now, or null if there is not enough context to write a specific reason"
+  "reason": "..."
 }
 
-${hasContext ? 'The reason must be specific to what they\'ve been sharing — not generic. Sound like a friend who\'s been paying attention.' : 'If using only profile data, write a reason based on their interests. If there is no meaningful context, set reason to null.'}
-Vera's voice: warm, direct, slightly imperfect. No exclamation points. No em dashes.
+For the reason field: lead with what the content IS about — its core ideas, themes,
+or what makes it interesting. Then briefly why it might resonate for this person.
+More weight on the content itself, less on the recommendation rationale.
+${reasonGuidance}
 
 Return only valid JSON. No preamble, no markdown fences.`
 
   try {
     const raw = await callAI(
-      'You are Vera. Return only valid JSON as instructed.',
+      'You are Vera. Return only valid JSON.',
       [{ role: 'user', content: prompt }],
-      200
+      220
     )
     const clean = raw.replace(/```json|```/g, '').trim()
     const result = JSON.parse(clean)
     result.generatedAt = new Date().toISOString()
     return result
   } catch(e) {
-    console.warn('Grow suggestion generation failed:', e)
+    console.warn('Grow suggestion failed:', e)
     return null
   }
 }

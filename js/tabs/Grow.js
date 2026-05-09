@@ -7,9 +7,12 @@ import {
   saveGrowSuggestion,
   getGrowNotice,
   saveGrowNotice,
+  clearGrowNotice,
+  deleteListItem,
   addToList,
   generateId,
   getRecentEntries,
+  addPendingFollowUp,
 } from '../lib/storage.js'
 import { generateGrowSuggestion, generateGrowNotice } from '../lib/api.js'
 import GrowSuggestCard from '../components/GrowSuggestCard.js'
@@ -100,10 +103,21 @@ export default function GrowTab({ listVersion }) {
     if (data.pendingNoticeGeneration) handleGenerateNotice()
   }
 
+  function handleDelete(itemId) {
+    deleteListItem(itemId)
+    setItems(getGrowItems())
+  }
+
+  function handleDismissNotice() {
+    clearGrowNotice()
+    setNotice(null)
+  }
+
   function handleMarkDone(itemId) {
     const data = getGrowData()
     const item = data.items.find(i => i.id === itemId)
     if (!item) return
+    addPendingFollowUp(item.title, item.type)
     item.status = 'finished'
     item.completedAt = new Date().toISOString()
     saveGrowData(data)
@@ -142,7 +156,7 @@ export default function GrowTab({ listVersion }) {
             <div class="mv-div-diamond"></div>
             <div class="mv-div-line"></div>
           </div>
-          <${GrowNoticesCard} notice=${notice} />
+          <${GrowNoticesCard} notice=${notice} onDismiss=${handleDismissNotice} />
         `}
 
         <div class="mv-divider">
@@ -161,6 +175,7 @@ export default function GrowTab({ listVersion }) {
           onHideAddForm=${() => setShowAddForm(false)}
           onAdd=${handleAddToList}
           onMarkDone=${handleMarkDone}
+          onDelete=${handleDelete}
         />
 
       </div>

@@ -53,6 +53,79 @@ function formatTime(isoString) {
     .toLowerCase()
 }
 
+// ─── Nudge system ─────────────────────────────────────────────────────────────
+
+function computeNudge() {
+  const today        = new Date()
+  const dayOfWeek    = today.getDay()
+  const dayOfMonth   = today.getDate()
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const weekKey      = storageLib.getWeekKey(today)
+  const monthKey     = storageLib.getMonthKey(today)
+  const nudgeState   = storageLib.getNudgeState()
+
+  // Weekly review — ask on Sun (0) or Mon (1)
+  const shouldAskWeeklyReview =
+    (dayOfWeek === 0 || dayOfWeek === 1) &&
+    !storageLib.getWeeklyReview(weekKey) &&
+    !nudgeState.askedReview?.includes(weekKey)
+
+  // Weekly intention — only after review is done/declined
+  const reviewDoneOrDeclined = storageLib.getWeeklyReview(weekKey) || nudgeState.askedReview?.includes(weekKey)
+  const shouldAskWeeklyIntention =
+    (dayOfWeek === 0 || dayOfWeek === 1) &&
+    reviewDoneOrDeclined &&
+    !storageLib.getWeeklyIntention(weekKey) &&
+    !nudgeState.askedIntention?.includes(weekKey)
+
+  // Monthly review — last day or first day of month
+  const isMonthEnd = dayOfMonth === lastDayOfMonth || dayOfMonth === 1
+  const shouldAskMonthlyReview =
+    isMonthEnd &&
+    !storageLib.getMonthlyReview(monthKey) &&
+    !nudgeState.askedMonthlyReview?.includes(monthKey)
+
+  // Monthly intention — first 2 days of month, after monthly review
+  const monthlyReviewDoneOrDeclined = storageLib.getMonthlyReview(monthKey) || nudgeState.askedMonthlyReview?.includes(monthKey)
+  const shouldAskMonthlyIntention =
+    dayOfMonth <= 2 &&
+    monthlyReviewDoneOrDeclined &&
+    !storageLib.getMonthlyIntention(monthKey) &&
+    !nudgeState.askedMonthlyIntention?.includes(monthKey)
+
+  if (shouldAskWeeklyReview)     return { type: 'weekly_review',    weekKey }
+  if (shouldAskWeeklyIntention)  return { type: 'weekly_intention',  weekKey }
+  if (shouldAskMonthlyReview)    return { type: 'monthly_review',   monthKey }
+  if (shouldAskMonthlyIntention) return { type: 'monthly_intention', monthKey }
+  return null
+}
+
+function nudgeToStorageKey(nudge) {
+  switch (nudge.type) {
+    case 'weekly_review':    return { storageType: 'askedReview',          key: nudge.weekKey }
+    case 'weekly_intention': return { storageType: 'askedIntention',       key: nudge.weekKey }
+    case 'monthly_review':   return { storageType: 'askedMonthlyReview',   key: nudge.monthKey }
+    case 'monthly_intention':return { storageType: 'askedMonthlyIntention',key: nudge.monthKey }
+    default: return null
+  }
+}
+
+function buildNudgeMessage(nudge) {
+  const profile  = storageLib.getUserProfile()
+  const name     = profile?.name ? `, ${profile.name}` : ''
+
+  switch (nudge.type) {
+    case 'weekly_review':
+      return `hey${name} — how did the week go? do you want to take a few minutes to look back on it?`
+    case 'weekly_intention':
+      return `new week ahead${name} — do you want to set an intention for it? only takes a moment.`
+    case 'monthly_review':
+      return `the month is wrapping up${name} — do you want to do a quick reflection on how it went?`
+    case 'monthly_intention':
+      return `new month${name} — do you want to set an intention for it?`
+  }
+}
+
 // ─── Opening message (async, memory-aware) ────────────────────────────────────
 
 async function buildOpeningMessage(allMessages) {
@@ -108,7 +181,7 @@ async function buildOpeningMessage(allMessages) {
 
 // ─── Conversation initialisation (runs once on mount) ─────────────────────────
 
-async function initialiseConversation(setMessages) {
+async function initialiseConversation(setMessages, setActiveNudge) {
   const all   = []
   const today = new Date()
 
@@ -133,17 +206,37 @@ async function initialiseConversation(setMessages) {
     }
   }
 
-  const todayEntries     = storageLib.getEntriesForDate(storageLib.getTodayString())
-  const hasTodayConvo    = todayEntries.length > 0
+  const todayEntries  = storageLib.getEntriesForDate(storageLib.getTodayString())
+  const hasTodayConvo = todayEntries.length > 0
 
   if (!hasTodayConvo) {
     all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
-    setMessages([...all]) // render history + separator immediately while awaiting opening
+    setMessages([...all]) // render history + separator immediately
 
-    const openingText = await buildOpeningMessage(all)
+    // Check nudge first, then follow-up, then regular opening
+    const nudge = computeNudge()
+    let openingText
+
+    if (nudge) {
+      openingText = buildNudgeMessage(nudge)
+      setActiveNudge(nudge)
+    } else {
+      const followUp = storageLib.popPendingFollowUp()
+      if (followUp) {
+        const profile = storageLib.getUserProfile()
+        const nameStr = profile?.name ? `, ${profile.name}` : ''
+        const typeVerb = {
+          'Book': 'finished', 'Film': 'watched', 'Podcast': 'listened to',
+          'Article': 'read', 'Other': 'finished',
+        }[followUp.type] || 'finished'
+        openingText = `hey${nameStr} — you ${typeVerb} ${followUp.title}. what did you make of it?`
+      } else {
+        openingText = await buildOpeningMessage(all)
+      }
+    }
+
     all.push({ type: 'vera', text: openingText, id: 'opening_' + storageLib.getTodayString() })
   }
-  // If user already talked today — just show history, no new prompt
 
   setMessages(all)
 
@@ -164,7 +257,6 @@ async function checkAndGenerateClosing(setMessages) {
   const hasClosing = yesterdayEntries.some(e => e.type === 'vera_closing')
   if (hasClosing) return
 
-  // Build a message list from yesterday's entries so generateClosing can read them
   const yesterdayMessages = []
   yesterdayEntries.forEach(entry => {
     if (entry.userText) yesterdayMessages.push({ type: 'user', text: entry.userText })
@@ -187,11 +279,10 @@ async function checkAndGenerateClosing(setMessages) {
     freeTags: [],
   })
 
-  // Insert the closing bubble right before today's separator (or at the end)
   setMessages(prev => {
-    const todayStr = storageLib.getTodayString()
+    const todayStr    = storageLib.getTodayString()
     const todaySepIdx = prev.findIndex(m => m.type === 'separator' && m.date === todayStr)
-    const endIdx = todaySepIdx === -1 ? prev.length : todaySepIdx
+    const endIdx      = todaySepIdx === -1 ? prev.length : todaySepIdx
 
     const closingMsg = { type: 'vera_closing', text: closingText, id: 'closing_' + yesterdayStr }
     const next = [...prev]
@@ -202,7 +293,7 @@ async function checkAndGenerateClosing(setMessages) {
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-function MainApp({ messages, setMessages }) {
+function MainApp({ messages, setMessages, activeNudge, setActiveNudge }) {
   const [activeTab,       setActiveTab]       = React.useState('share')
   const [trackedPatterns, setTrackedPatterns] = React.useState(() => storageLib.getTrackedPatterns())
   const [growListVersion, setGrowListVersion] = React.useState(0)
@@ -213,6 +304,21 @@ function MainApp({ messages, setMessages }) {
 
   function refreshGrowList() {
     setGrowListVersion(v => v + 1)
+  }
+
+  function handleNudgeAccepted(nudgeType) {
+    if (!activeNudge) return
+    const keys = nudgeToStorageKey(activeNudge)
+    if (keys) storageLib.markNudgeAsked(keys.storageType, keys.key)
+    setActiveNudge(null)
+    setActiveTab('intend')
+  }
+
+  function handleNudgeDeclined() {
+    if (!activeNudge) return
+    const keys = nudgeToStorageKey(activeNudge)
+    if (keys) storageLib.markNudgeAsked(keys.storageType, keys.key)
+    setActiveNudge(null)
   }
 
   if (activeTab === 'share') {
@@ -226,12 +332,14 @@ function MainApp({ messages, setMessages }) {
           setActiveTab=${setActiveTab}
           onPatternAdded=${refreshPatterns}
           onListUpdated=${refreshGrowList}
+          activeNudge=${activeNudge}
+          onNudgeAccepted=${handleNudgeAccepted}
+          onNudgeDeclined=${handleNudgeDeclined}
         />
       </div>
     `
   }
 
-  // Remember tab takes over the full viewport like Share — its own scroll container
   if (activeTab === 'remember') {
     return html`
       <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -246,7 +354,6 @@ function MainApp({ messages, setMessages }) {
     `
   }
 
-  // Intend tab takes over the full viewport — its own scroll container
   if (activeTab === 'intend') {
     return html`
       <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -258,7 +365,6 @@ function MainApp({ messages, setMessages }) {
     `
   }
 
-  // Grow tab — full viewport with its own scroll container
   if (activeTab === 'grow') {
     return html`
       <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -280,12 +386,13 @@ function App() {
   const [onboardingDone, setOnboardingDone] = React.useState(
     () => storageLib.isOnboardingComplete()
   )
-  const [messages,               setMessages]               = React.useState([])
+  const [messages,                setMessages]                = React.useState([])
   const [conversationInitialised, setConversationInitialised] = React.useState(false)
+  const [activeNudge,             setActiveNudge]             = React.useState(null)
 
   React.useEffect(() => {
     if (onboardingDone && !conversationInitialised) {
-      initialiseConversation(setMessages)
+      initialiseConversation(setMessages, setActiveNudge)
       setConversationInitialised(true)
     }
   }, [onboardingDone])
@@ -294,7 +401,14 @@ function App() {
     return html`<${Onboarding} onComplete=${() => setOnboardingDone(true)} />`
   }
 
-  return html`<${MainApp} messages=${messages} setMessages=${setMessages} />`
+  return html`
+    <${MainApp}
+      messages=${messages}
+      setMessages=${setMessages}
+      activeNudge=${activeNudge}
+      setActiveNudge=${setActiveNudge}
+    />
+  `
 }
 
 const root = ReactDOM.createRoot(document.getElementById('app'))

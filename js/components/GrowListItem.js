@@ -8,11 +8,78 @@ function formatItemDate(isoString) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function GrowListItem({ item, onMarkDone }) {
+export default function GrowListItem({ item, onMarkDone, onDelete }) {
+  const [confirming, setConfirming] = React.useState(false)
+  const pressTimer = React.useRef(null)
+
+  function startPress() {
+    pressTimer.current = setTimeout(() => setConfirming(true), 500)
+  }
+  function cancelPress() {
+    clearTimeout(pressTimer.current)
+  }
+  function confirmDelete() {
+    if (onDelete) onDelete(item.id)
+    setConfirming(false)
+  }
+  function cancelDelete() {
+    setConfirming(false)
+  }
+
+  if (confirming) {
+    return html`
+      <div style=${{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        padding: '12px 0',
+        borderBottom: '0.5px solid var(--border)',
+      }}>
+        <span style=${{
+          fontFamily: "'Cinzel', serif",
+          fontSize: '9px',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: 'var(--text-dim)',
+        }}>Remove?</span>
+        <span
+          onClick=${confirmDelete}
+          style=${{
+            fontFamily: "'Cinzel', serif",
+            fontSize: '9px',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: '#FF6B6B',
+            cursor: 'pointer',
+          }}
+        >Yes</span>
+        <span
+          onClick=${cancelDelete}
+          style=${{
+            fontFamily: "'Cinzel', serif",
+            fontSize: '9px',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--text-dim)',
+            opacity: 0.6,
+            cursor: 'pointer',
+          }}
+        >No</span>
+      </div>
+    `
+  }
+
   const isAhead = item.status === 'ahead'
 
   return html`
-    <div class=${`g2-path-item ${isAhead ? 'upcoming' : 'past'}`}>
+    <div
+      class=${`g2-path-item ${isAhead ? 'upcoming' : 'past'}`}
+      onMouseDown=${startPress}
+      onMouseUp=${cancelPress}
+      onMouseLeave=${cancelPress}
+      onTouchStart=${startPress}
+      onTouchEnd=${cancelPress}
+    >
       ${isAhead
         ? html`
           <div

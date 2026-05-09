@@ -8,6 +8,7 @@ import {
   recomputePatternCounts,
   markListItemDone,
   addToList,
+  removeFromList,
 } from '../lib/storage.js'
 import { scanForSymptoms } from '../lib/scanner.js'
 import { sendMessage, regenerateSummary } from '../lib/api.js'
@@ -23,45 +24,93 @@ function formatTime(isoString) {
     .toLowerCase()
 }
 
-export default function ShareTab({ messages, setMessages, setActiveTab, onPatternAdded, onListUpdated }) {
+export default function ShareTab({
+  messages, setMessages, setActiveTab,
+  onPatternAdded, onListUpdated,
+  activeNudge, onNudgeAccepted, onNudgeDeclined,
+}) {
   const [inputText,  setInputText]  = React.useState('')
-  const [isThinking, setIsThinking] = React.useState(false)
+  const [isStreaming, setIsStreaming] = React.useState(false)
   const chatEndRef = React.useRef(null)
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isThinking])
+  }, [messages])
 
   async function handleSend() {
     const userText = inputText.trim()
-    if (!userText || isThinking) return
+    if (!userText || isStreaming) return
 
     setInputText('')
-    setIsThinking(true)
+    setIsStreaming(true)
 
-    const now     = new Date().toISOString()
-    const entryId = generateId()
+    const now    = new Date().toISOString()
+    const userId = generateId()
+    const veraId = generateId()
 
-    setMessages(prev => [...prev, { type: 'user', text: userText, time: formatTime(now), id: entryId }])
+    const userMsg = { type: 'user', text: userText, time: formatTime(now), id: userId }
+    const messagesWithUser = [...messages, userMsg]
+
+    // Show user message + empty vera bubble immediately
+    setMessages([...messagesWithUser, { type: 'vera', text: '', id: veraId, streaming: true }])
+
+    let rawAccumulated = ''
 
     try {
-      const { displayText, newPattern, doneTitle, newListItem } = await sendMessage(userText, messages)
+      const result = await sendMessage(
+        userText,
+        messagesWithUser,
+        activeNudge,
+        (chunk) => {
+          rawAccumulated += chunk
+          // Strip any partial tags mid-stream for display
+          const liveText = rawAccumulated
+            .replace(/\[TRACK:[^\]]*$/i, '')
+            .replace(/\[DONE:[^\]]*$/i, '')
+            .replace(/\[AHEAD:[^\]]*$/i, '')
+            .replace(/\[ADD:[^\]]*$/i, '')
+            .replace(/\[REMOVE:[^\]]*$/i, '')
+            .replace(/\[NUDGE[^\]]*$/i, '')
+            .trimEnd()
 
-      setMessages(prev => [...prev, { type: 'vera', text: displayText, id: entryId + '_response' }])
+          setMessages(prev => prev.map(m =>
+            m.id === veraId ? { ...m, text: liveText, streaming: true } : m
+          ))
+        }
+      )
 
-      if (newPattern && onPatternAdded) onPatternAdded()
+      // Stream done — set final clean text, mark not streaming
+      setMessages(prev => prev.map(m =>
+        m.id === veraId ? { ...m, text: result.displayText, streaming: false } : m
+      ))
 
-      if (doneTitle) {
-        markListItemDone(doneTitle)
-        if (onListUpdated) onListUpdated()
-      }
+      // Save entry
+      const { detected, freeTags } = scanForSymptoms(userText)
+      const symptomsToLog = result.newPattern
+        ? detected.filter(occ => {
+            const words = result.newPattern.name.toLowerCase().split(/\s+/).filter(w => w.length >= 3)
+            return !words.some(w => occ.keyword.toLowerCase().includes(w))
+          })
+        : detected
 
-      if (newListItem) {
+      saveEntry(getTodayString(), {
+        id: userId,
+        createdAt: now,
+        userText,
+        aiResponse: result.displayText,
+        mood: null,
+        detectedSymptoms: symptomsToLog,
+        detectedThemes: [],
+        freeTags,
+      })
+
+      // Handle tags
+      if (result.aheadItem) {
         addToList({
           id: generateId(),
-          title: newListItem.title,
-          author: newListItem.author,
-          type: newListItem.type,
+          title: result.aheadItem.title,
+          author: result.aheadItem.author || null,
+          type: result.aheadItem.type,
           status: 'ahead',
           addedAt: new Date().toISOString(),
           completedAt: null,
@@ -69,17 +118,33 @@ export default function ShareTab({ messages, setMessages, setActiveTab, onPatter
         if (onListUpdated) onListUpdated()
       }
 
-      const { detected, freeTags } = scanForSymptoms(userText)
-      saveEntry(getTodayString(), {
-        id: entryId,
-        createdAt: now,
-        userText,
-        aiResponse: displayText,
-        mood: null,
-        detectedSymptoms: detected,
-        detectedThemes: [],
-        freeTags,
-      })
+      if (result.newPattern && onPatternAdded) onPatternAdded()
+
+      if (result.doneItem) {
+        markListItemDone(result.doneItem)
+        if (onListUpdated) onListUpdated()
+      }
+
+      if (result.newListItem) {
+        addToList({
+          id: generateId(),
+          title: result.newListItem.title,
+          author: result.newListItem.author || null,
+          type: result.newListItem.type || 'Other',
+          status: 'ahead',
+          addedAt: new Date().toISOString(),
+          completedAt: null,
+        })
+        if (onListUpdated) onListUpdated()
+      }
+
+      if (result.removeTitle) {
+        removeFromList(result.removeTitle)
+        if (onListUpdated) onListUpdated()
+      }
+
+      if (result.nudgeYes && onNudgeAccepted) onNudgeAccepted(result.nudgeYes)
+      if (result.nudgeNo  && onNudgeDeclined) onNudgeDeclined()
 
       try {
         elevatePatterns()
@@ -93,13 +158,13 @@ export default function ShareTab({ messages, setMessages, setActiveTab, onPatter
       }
     } catch (err) {
       console.error('[Vera] sendMessage failed:', err)
-      setMessages(prev => [...prev, {
-        type: 'vera',
-        text: "I'm here. Something went quiet on my end — try again in a moment.",
-        id: entryId + '_err',
-      }])
+      setMessages(prev => prev.map(m =>
+        m.id === veraId
+          ? { ...m, text: "I'm here. Something went quiet on my end — try again in a moment.", streaming: false }
+          : m
+      ))
     } finally {
-      setIsThinking(false)
+      setIsStreaming(false)
     }
   }
 
@@ -112,9 +177,14 @@ export default function ShareTab({ messages, setMessages, setActiveTab, onPatter
           if (m.type === 'separator') {
             return html`<${DaySeparator} key=${m.date} label=${m.label} />`
           }
-          return html`<${ChatBubble} key=${m.id} type=${m.type} text=${m.text} time=${m.time} />`
+          return html`<${ChatBubble}
+            key=${m.id}
+            type=${m.type}
+            text=${m.text}
+            time=${m.time}
+            streaming=${m.streaming}
+          />`
         })}
-        ${isThinking && html`<${ChatBubble} type="thinking" />`}
         <div ref=${chatEndRef}></div>
       </div>
 
@@ -122,7 +192,7 @@ export default function ShareTab({ messages, setMessages, setActiveTab, onPatter
         value=${inputText}
         onChange=${setInputText}
         onSend=${handleSend}
-        disabled=${isThinking}
+        disabled=${isStreaming}
         onTabChange=${setActiveTab}
       />
     </div>

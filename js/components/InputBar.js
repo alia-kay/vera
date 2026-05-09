@@ -62,8 +62,8 @@ function GrowIcon({ color }) {
 
 const NAV_TABS = [
   { id: 'share',    label: 'Share',    Icon: ShareIcon    },
-  { id: 'intend',   label: 'Intend',   Icon: IntendIcon   },
   { id: 'remember', label: 'Remember', Icon: RememberIcon },
+  { id: 'intend',   label: 'Intend',   Icon: IntendIcon   },
   { id: 'grow',     label: 'Grow',     Icon: GrowIcon     },
 ]
 

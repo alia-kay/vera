@@ -9,7 +9,7 @@ const VISIBLE_FINISHED = 2
 export default function GrowList({
   aheadItems, finishedItems,
   showAddForm, onShowAddForm, onHideAddForm,
-  onAdd, onMarkDone,
+  onAdd, onMarkDone, onDelete,
 }) {
   const [showMore, setShowMore] = React.useState(false)
 
@@ -34,20 +34,20 @@ export default function GrowList({
       ${aheadItems.length > 0 && html`
         <div class="g2-path-section-label">Ahead</div>
         ${aheadItems.map(item => html`
-          <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} />
+          <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} onDelete=${onDelete} />
         `)}
       `}
 
       ${finishedItems.length > 0 && html`
         <div class="g2-path-section-label">Finished</div>
         ${visibleFinished.map(item => html`
-          <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} />
+          <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} onDelete=${onDelete} />
         `)}
 
         ${hasMore && html`
           <div class=${`g2-path-more ${showMore ? 'open' : ''}`}>
             ${hiddenFinished.map(item => html`
-              <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} />
+              <${GrowListItem} key=${item.id} item=${item} onMarkDone=${onMarkDone} onDelete=${onDelete} />
             `)}
           </div>
 

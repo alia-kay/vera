@@ -1,7 +1,7 @@
 import htm from 'https://unpkg.com/htm?module'
 const html = htm.bind(React.createElement)
 
-export default function ChatBubble({ type, text, time }) {
+export default function ChatBubble({ type, text, time, streaming }) {
   if (type === 'vera_closing') {
     return html`
       <div style=${{
@@ -22,20 +22,13 @@ export default function ChatBubble({ type, text, time }) {
     `
   }
 
-  if (type === 'thinking') {
-    return html`
-      <div class="bubble-vera">
-        <div class="bubble-vera-label">Vera</div>
-        <div class="bubble-vera-text" style=${{ opacity: 0.5, letterSpacing: '0.2em' }}>···</div>
-      </div>
-    `
-  }
-
   if (type === 'vera') {
     return html`
       <div class="bubble-vera">
         <div class="bubble-vera-label">Vera</div>
-        <div class="bubble-vera-text">${text}</div>
+        <div class="bubble-vera-text">
+          ${text}${streaming ? html`<span class="vera-cursor"></span>` : ''}
+        </div>
       </div>
     `
   }

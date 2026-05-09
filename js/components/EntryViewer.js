@@ -12,6 +12,15 @@ function formatEntryDate(dateStr) {
   return `${day} · ${month} ${date.getDate()}`
 }
 
+function parseRecap(text) {
+  if (!text) return { main: '', suggestion: null }
+  const parts = text.split('\n---\n')
+  return {
+    main:       parts[0]?.trim() || text,
+    suggestion: parts[1]?.trim() || null,
+  }
+}
+
 export default function EntryViewer({ date, entries, onClose, recapCache, onRecapGenerated }) {
   if (!date || !entries || entries.length === 0) return null
 
@@ -39,6 +48,8 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
     })
   }, [date])
 
+  const { main, suggestion } = parseRecap(recap)
+
   return html`
     <div>
       <div class="mv-divider mv-divider-amber">
@@ -61,7 +72,7 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
         ${loading && html`
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '15px',
+            fontSize: '16px',
             fontStyle: 'italic',
             color: 'var(--text-dim)',
             lineHeight: 1.6,
@@ -69,18 +80,40 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
           }}>Vera is reading this day...</div>
         `}
 
-        ${!loading && recap && html`
+        ${!loading && main && html`
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '16px',
+            fontSize: '18px',
             fontWeight: 300,
             color: 'var(--text)',
-            lineHeight: 1.7,
+            lineHeight: 1.75,
             fontStyle: 'italic',
-          }}>${recap}</div>
+          }}>${main}</div>
+
+          ${suggestion && html`
+            <div style=${{ marginTop: '18px', paddingTop: '14px', borderTop: '0.5px solid var(--border)' }}>
+              <div style=${{
+                fontFamily: "'Cinzel', serif",
+                fontSize: '9px',
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--text-dim)',
+                opacity: 0.6,
+                marginBottom: '10px',
+              }}>A reflection</div>
+              <div style=${{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: '16px',
+                fontStyle: 'italic',
+                fontWeight: 300,
+                color: 'var(--text-muted)',
+                lineHeight: 1.65,
+              }}>${suggestion}</div>
+            </div>
+          `}
         `}
 
-        ${!loading && !recap && html`
+        ${!loading && !main && html`
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: '15px',
@@ -88,7 +121,7 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
             color: 'var(--text-dim)',
             lineHeight: 1.6,
             opacity: 0.5,
-          }}>Nothing to recap for this day.</div>
+          }}>Nothing to reflect on for this day.</div>
         `}
       </div>
     </div>

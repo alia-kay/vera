@@ -12,8 +12,21 @@ export default function RememberTab({ trackedPatterns, onPatternDeleted }) {
   const [displayMonth,    setDisplayMonth]    = React.useState(today.getMonth() + 1)
   const [selectedDate,    setSelectedDate]    = React.useState(null)
   const [selectedEntries, setSelectedEntries] = React.useState([])
-  const [activeFilters,   setActiveFilters]   = React.useState([])
+  const [activeFilters,   setActiveFilters]   = React.useState(
+    () => (trackedPatterns || []).map(p => p.id)
+  )
   const [recapCache,      setRecapCache]      = React.useState({})
+
+  // Auto-activate any newly added patterns
+  React.useEffect(() => {
+    setActiveFilters(prev => {
+      const currentIds = new Set(prev)
+      const newIds = (trackedPatterns || [])
+        .filter(p => !currentIds.has(p.id))
+        .map(p => p.id)
+      return newIds.length > 0 ? [...prev, ...newIds] : prev
+    })
+  }, [trackedPatterns])
 
   function handleDaySelect(dateStr) {
     if (selectedDate === dateStr) {
