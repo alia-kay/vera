@@ -447,7 +447,7 @@ export async function generateGrowSuggestion(listItems = [], recentEntries = [])
 
   const reasonGuidance = signalType === 'general'
     ? `reason: Return null — no specific context to draw from.`
-    : `reason: One sentence only. What is this about and why it might resonate. Content-first — describe the core idea or angle briefly. Return null if the connection feels forced.`
+    : `reason: 2-3 short sentences maximum. Lead with what the content is actually about. Then optionally one brief note on why it connects to this person. Each sentence must be short — under 20 words. Return null if context is too thin.`
 
   const prompt = `\
 Suggest ONE book, film, podcast, or article for this person.

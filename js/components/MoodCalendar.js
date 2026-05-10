@@ -1,5 +1,5 @@
 import htm from 'https://unpkg.com/htm?module'
-import { getMoodForMonth, getPatternData, getTodayString } from '../lib/storage.js'
+import { getMoodForMonth, getPatternData, getTodayString, getEntriesForDate } from '../lib/storage.js'
 import PatternChips, { getPatternColour } from './PatternChips.js'
 
 const html = htm.bind(React.createElement)
@@ -11,25 +11,15 @@ const MONTH_NAMES = [
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-const LEGEND_ITEMS = [
-  { label: 'Hard',  bg: 'rgba(180,70,60,0.3)',   color: '#C4786A' },
-  { label: 'Low',   bg: 'rgba(160,110,50,0.3)',  color: '#B8905A' },
-  { label: 'Okay',  bg: 'rgba(140,130,80,0.28)', color: '#A89870' },
-  { label: 'Good',  bg: 'rgba(70,130,100,0.3)',  color: '#5A9A7A' },
-  { label: 'Clear', bg: 'rgba(70,140,160,0.3)',  color: '#5AAABB' },
-]
-
-
-function getDayClass(mood, isToday, isSelected, isFuture) {
+function getDayClass(dateStr, isToday, isSelected, isFuture) {
   const classes = ['c']
   if (isFuture) { classes.push('future'); return classes.join(' ') }
-  if (isToday) classes.push('today')
-  else if (mood === 1) classes.push('m1')
-  else if (mood === 2) classes.push('m2')
-  else if (mood === 3) classes.push('m3')
-  else if (mood === 4) classes.push('m4')
-  else if (mood === 5) classes.push('m5')
-  else classes.push('no-entry')
+  if (isToday) {
+    classes.push('today')
+  } else {
+    const hasEntry = getEntriesForDate(dateStr).length > 0
+    classes.push(hasEntry ? 'has-entry' : 'no-entry')
+  }
   if (isSelected) classes.push('selected')
   return classes.join(' ')
 }
@@ -41,7 +31,6 @@ export default function MoodCalendar({
   onDaySelect, onPrevMonth, onNextMonth,
   patterns, onToggle, onDelete,
 }) {
-  const moodData    = getMoodForMonth(year, month)
   const patternData = getPatternData()
   const todayStr    = getTodayString()
 
@@ -107,11 +96,10 @@ export default function MoodCalendar({
           }
 
           const dateStr  = `${year}-${pad(month)}-${pad(day)}`
-          const mood     = moodData[dateStr] ?? null
           const isToday  = dateStr === todayStr
           const isFuture = dateStr > todayStr
           const isSel    = dateStr === selectedDate
-          const cls      = getDayClass(mood, isToday, isSel, isFuture)
+          const cls      = getDayClass(dateStr, isToday, isSel, isFuture)
 
           // Pattern dot: find the first active pattern with an occurrence on this date
           const dayOccs = occurrencesByDate[dateStr] || []
@@ -140,15 +128,6 @@ export default function MoodCalendar({
             </div>
           `
         })}
-      </div>
-
-      <div class="legend">
-        ${LEGEND_ITEMS.map(item => html`
-          <div key=${item.label} class="leg">
-            <div class="leg-dot" style=${{ background: item.bg }}></div>
-            <div class="leg-lbl" style=${{ color: item.color }}>${item.label}</div>
-          </div>
-        `)}
       </div>
 
     </div>

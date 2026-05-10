@@ -21,6 +21,36 @@ function parseRecap(text) {
   }
 }
 
+const recapStyle = {
+  fontFamily: "'Cormorant Garamond', serif",
+  fontSize: '19px',
+  fontWeight: 300,
+  fontStyle: 'italic',
+  color: 'var(--text)',
+  lineHeight: 1.7,
+}
+
+function renderRecap(text) {
+  const sentences = text.match(/[^.!?]+[.!?]+["']?\s*/g) || [text]
+
+  if (sentences.length <= 2) {
+    return html`<div style=${recapStyle}>${text}</div>`
+  }
+
+  const paragraphs = []
+  for (let i = 0; i < sentences.length; i += 2) {
+    paragraphs.push(sentences.slice(i, i + 2).join('').trim())
+  }
+
+  return html`
+    <div style=${{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      ${paragraphs.map((p, i) => html`
+        <div key=${i} style=${recapStyle}>${p}</div>
+      `)}
+    </div>
+  `
+}
+
 export default function EntryViewer({ date, entries, onClose, recapCache, onRecapGenerated }) {
   if (!date || !entries || entries.length === 0) return null
 
@@ -81,42 +111,27 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
         `}
 
         ${!loading && main && html`
-          <div style=${{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '18px',
-            fontWeight: 300,
-            color: 'var(--text)',
-            lineHeight: 1.75,
-            fontStyle: 'italic',
-          }}>${main}</div>
+          ${renderRecap(main)}
 
           ${suggestion && html`
-            <div style=${{ marginTop: '18px', paddingTop: '14px', borderTop: '0.5px solid var(--border)' }}>
-              <div style=${{
-                fontFamily: "'Cinzel', serif",
-                fontSize: '9px',
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--text-dim)',
-                opacity: 0.6,
-                marginBottom: '10px',
-              }}>A reflection</div>
-              <div style=${{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: '16px',
-                fontStyle: 'italic',
-                fontWeight: 300,
-                color: 'var(--text-muted)',
-                lineHeight: 1.65,
-              }}>${suggestion}</div>
-            </div>
+            <div style=${{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: '16px',
+              fontWeight: 300,
+              fontStyle: 'italic',
+              color: 'var(--text-muted)',
+              lineHeight: 1.65,
+              marginTop: '12px',
+              paddingTop: '12px',
+              borderTop: '0.5px solid var(--border)',
+            }}>${suggestion}</div>
           `}
         `}
 
         ${!loading && !main && html`
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '15px',
+            fontSize: '16px',
             fontStyle: 'italic',
             color: 'var(--text-dim)',
             lineHeight: 1.6,

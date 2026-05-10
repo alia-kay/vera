@@ -15,15 +15,15 @@
       --surface:    #182430;
       --surface-2:  #1E2E3C;
       --amber:      #E8A030;
-      --teal:       #4A8888;
+      --teal:       #4AAEAE;
       --text:       #D8C8A8;
-      --text-muted: #6A8898;
-      --text-dim:   #7A9AAA;
-      --border:     #1E3040;
+      --text-muted: #8AB4C4;
+      --text-dim:   #9ABCCC;
+      --border:     #2A4050;
       --nav-bg:     #0C1420;
       --div-line:   #4A6880;
       --div-label:  #B8D4E0;
-      --inactive:   #6A8898;
+      --inactive:   #7A9AAA;
     }
 
     *, *::before, *::after {
@@ -117,14 +117,14 @@
       position: absolute;
       bottom: 60px; right: -20px;
       width: 160px; height: 160px;
-      background: radial-gradient(circle, rgba(74,136,136,0.06) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(74,174,174,0.06) 0%, transparent 70%);
     }
     .atmos-2::before {
       content: '';
       position: absolute;
       top: 30px; right: 5%;
       width: 180px; height: 180px;
-      background: radial-gradient(ellipse, rgba(74,136,136,0.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%);
     }
     .atmos-3::before {
       content: '';
@@ -138,7 +138,7 @@
       position: absolute;
       bottom: 80px; left: 5%;
       width: 200px; height: 200px;
-      background: radial-gradient(ellipse, rgba(74,136,136,0.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%);
     }
     .atmos-5::before {
       content: '';
@@ -475,7 +475,7 @@
       right: -20px;
       width: 180px;
       height: 180px;
-      background: radial-gradient(circle, rgba(74,136,136,0.05) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(74,174,174,0.05) 0%, transparent 70%);
     }
     .chat {
       flex: 1;
@@ -514,12 +514,24 @@
       border-radius: 3px 14px 14px 14px;
       padding: 13px 17px;
       font-family: 'Cormorant Garamond', serif;
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 300;
-      font-style: italic;
+      font-style: normal;
       color: var(--text);
       line-height: 1.65;
       letter-spacing: 0.01em;
+    }
+    .bubble-vera-text.split-first {
+      border-radius: 3px 14px 14px 3px;
+      margin-bottom: 3px;
+    }
+    .bubble-vera-text.split-mid {
+      border-radius: 3px 14px 14px 3px;
+      margin-bottom: 3px;
+    }
+    .bubble-vera-text.split-last {
+      border-radius: 3px 14px 14px 14px;
+      margin-bottom: 0;
     }
     .bubble-user {
       align-self: flex-end;
@@ -533,10 +545,10 @@
       border: 0.5px solid rgba(232,160,48,0.18);
       border-radius: 14px 3px 14px 14px;
       padding: 12px 16px;
-      font-size: 15px;
+      font-size: 18px;
       font-weight: 300;
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.55;
       letter-spacing: 0.02em;
     }
     .bubble-user-meta {
@@ -604,9 +616,9 @@
       outline: none;
       color: var(--text);
       font-family: 'Jost', sans-serif;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 300;
-      line-height: 1.6;
+      line-height: 1.55;
       resize: none;
       width: 100%;
       min-height: 40px;
@@ -664,7 +676,7 @@
       font-family: 'Cinzel', serif;
     }
     .share-nav-item.active .share-nav-label { color: var(--amber); }
-    .share-nav-item.inactive .share-nav-label { color: #6A8898; }
+    .share-nav-item.inactive .share-nav-label { color: var(--inactive); }
 
     /* ─── REMEMBER TAB ─── */
     .remember-atmos {
@@ -683,7 +695,7 @@
       position: absolute;
       top: -40px; left: 30%;
       width: 260px; height: 260px;
-      background: radial-gradient(ellipse, rgba(74,136,136,0.08) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(74,174,174,0.08) 0%, transparent 65%);
     }
     .remember-atmos::after {
       content: '';
@@ -836,8 +848,9 @@
     .c.m3 { background: rgba(140,130,80,0.15);  color: #A89870; }
     .c.m4 { background: rgba(70,130,100,0.18);  color: #5A9A7A; }
     .c.m5 { background: rgba(70,140,160,0.18);  color: #5AAABB; }
-    .c.no-entry { color: var(--text-dim); }
-    .c.today { background: var(--amber); color: var(--base); font-weight: 500; }
+    .c.has-entry { background: rgba(216,200,168,0.08); color: var(--text); }
+    .c.no-entry { color: var(--text-dim); opacity: 0.4; }
+    .c.today { background: var(--amber); color: var(--base); font-weight: 500; opacity: 1; }
     .c.selected { outline: 1.5px solid var(--amber); outline-offset: 1px; }
 
     .pat-dot {
@@ -847,20 +860,6 @@
       border-radius: 50%;
     }
 
-    .legend {
-      display: flex;
-      gap: 14px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-    .leg { display: flex; align-items: center; gap: 5px; }
-    .leg-dot { width: 7px; height: 7px; border-radius: 2px; }
-    .leg-lbl {
-      font-family: 'Cinzel', serif;
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
 
     .entry-wrap { padding: 0 24px; }
 
@@ -981,7 +980,7 @@
       position: absolute;
       bottom: 100px; left: -20px;
       width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(74,136,136,0.05) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(74,174,174,0.05) 0%, transparent 70%);
     }
 
     .intend-scroll {
@@ -1611,7 +1610,7 @@
     }
 
     /* ─── GROW TAB ─── */
-    .grow-atmos::before { content:''; position:absolute; top:-40px; left:25%; width:260px; height:260px; background:radial-gradient(ellipse, rgba(74,136,136,0.07) 0%, transparent 65%); }
+    .grow-atmos::before { content:''; position:absolute; top:-40px; left:25%; width:260px; height:260px; background:radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%); }
     .grow-atmos::after  { content:''; position:absolute; bottom:160px; right:-30px; width:200px; height:200px; background:radial-gradient(circle, rgba(232,160,48,0.04) 0%, transparent 70%); }
 
     .grow-scroll {
@@ -1714,7 +1713,7 @@
       border: 0.5px solid var(--border);
       border-radius: 14px;
       padding: 18px;
-      background: linear-gradient(180deg, rgba(74,136,136,0.06) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(74,174,174,0.06) 0%, transparent 100%);
       margin-bottom: 4px;
     }
     .g2-notices-label {

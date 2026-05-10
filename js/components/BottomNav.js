@@ -80,7 +80,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
     }}>
       ${TABS.map(({ id, label, Icon }) => {
         const isActive = activeTab === id
-        const color = isActive ? '#E8A030' : '#6A8898'
+        const color = isActive ? '#E8A030' : '#7A9AAA'
         return html`
           <button
             key=${id}

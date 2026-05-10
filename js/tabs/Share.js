@@ -18,6 +18,35 @@ import InputBar from '../components/InputBar.js'
 
 const html = htm.bind(React.createElement)
 
+function splitVeraMessage(text) {
+  if (text.length <= 200) return [text]
+
+  const sentences = text.match(/[^.!?]+[.!?]+["']?/g) || [text]
+
+  const parts = []
+  let current = ''
+
+  for (const sentence of sentences) {
+    if ((current + sentence).length > 220 && current.length > 60) {
+      parts.push(current.trim())
+      current = sentence
+    } else {
+      current += sentence
+    }
+  }
+  if (current.trim()) parts.push(current.trim())
+
+  if (parts.length > 3) {
+    return [
+      parts.slice(0, parts.length - 2).join(' '),
+      parts[parts.length - 2],
+      parts[parts.length - 1],
+    ]
+  }
+
+  return parts.length > 1 ? parts : [text]
+}
+
 function formatTime(isoString) {
   return new Date(isoString)
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
@@ -79,10 +108,28 @@ export default function ShareTab({
         }
       )
 
-      // Stream done — set final clean text, mark not streaming
-      setMessages(prev => prev.map(m =>
-        m.id === veraId ? { ...m, text: result.displayText, streaming: false } : m
-      ))
+      // Stream done — split into bubbles if long
+      const parts = splitVeraMessage(result.displayText)
+
+      if (parts.length === 1) {
+        setMessages(prev => prev.map(m =>
+          m.id === veraId ? { ...m, text: parts[0], streaming: false } : m
+        ))
+      } else {
+        setMessages(prev => prev.filter(m => m.id !== veraId))
+        for (let i = 0; i < parts.length; i++) {
+          if (i > 0) await new Promise(resolve => setTimeout(resolve, 400))
+          const partId = veraId + '_' + i
+          setMessages(prev => [...prev, {
+            type: 'vera',
+            text: parts[i],
+            id: partId,
+            streaming: false,
+            splitIndex: i,
+            splitTotal: parts.length,
+          }])
+        }
+      }
 
       // Save entry
       const { detected, freeTags } = scanForSymptoms(userText)
@@ -183,6 +230,8 @@ export default function ShareTab({
             text=${m.text}
             time=${m.time}
             streaming=${m.streaming}
+            splitIndex=${m.splitIndex}
+            splitTotal=${m.splitTotal}
           />`
         })}
         <div ref=${chatEndRef}></div>

@@ -102,7 +102,7 @@ export default function InputBar({ value, onChange, onSend, disabled, onTabChang
       <nav className="share-nav">
         ${NAV_TABS.map(({ id, label, Icon }) => {
           const isActive = id === 'share'
-          const color = isActive ? '#E8A030' : '#6A8898'
+          const color = isActive ? '#E8A030' : '#7A9AAA'
           const cls = 'share-nav-item ' + (isActive ? 'active' : 'inactive')
           return html`
             <button key=${id} className=${cls} onClick=${() => onTabChange && onTabChange(id)}>

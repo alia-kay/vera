@@ -1,7 +1,14 @@
 import htm from 'https://unpkg.com/htm?module'
 const html = htm.bind(React.createElement)
 
-export default function ChatBubble({ type, text, time, streaming }) {
+function getSplitClass(splitIndex, splitTotal) {
+  if (splitTotal === undefined || splitTotal <= 1) return ''
+  if (splitIndex === 0)              return 'split-first'
+  if (splitIndex === splitTotal - 1) return 'split-last'
+  return 'split-mid'
+}
+
+export default function ChatBubble({ type, text, time, streaming, splitIndex, splitTotal }) {
   if (type === 'vera_closing') {
     return html`
       <div style=${{
@@ -11,7 +18,7 @@ export default function ChatBubble({ type, text, time, streaming }) {
       }}>
         <div style=${{
           fontFamily: "'Cormorant Garamond', serif",
-          fontSize: '14px',
+          fontSize: '16px',
           fontStyle: 'italic',
           fontWeight: 300,
           color: 'var(--text-dim)',
@@ -23,10 +30,13 @@ export default function ChatBubble({ type, text, time, streaming }) {
   }
 
   if (type === 'vera') {
+    const splitClass = getSplitClass(splitIndex, splitTotal)
+    const showLabel  = splitIndex === undefined || splitIndex === 0
+
     return html`
       <div class="bubble-vera">
-        <div class="bubble-vera-label">Vera</div>
-        <div class="bubble-vera-text">
+        ${showLabel && html`<div class="bubble-vera-label">Vera</div>`}
+        <div class=${`bubble-vera-text${splitClass ? ' ' + splitClass : ''}`}>
           ${text}${streaming ? html`<span class="vera-cursor"></span>` : ''}
         </div>
       </div>
