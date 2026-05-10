@@ -7,18 +7,20 @@ import {
 // todayMessages: the current conversation messages array
 export function computeSignals(todayMessages = []) {
   const daysInactive = computeDaysInactive()
-  const userMessages = todayMessages.filter(m => m.type === 'user' && m.text)
   const veraMessages = todayMessages.filter(m => m.type === 'vera' && m.text)
+  const userMessages = todayMessages.filter(m => m.type === 'user' && m.text)
+
   return {
     daysInactive,
-    emotionalWeight:       computeEmotionalWeight(todayMessages),
-    questionFatigue:       computeQuestionFatigue(todayMessages),
-    conversationPressure:  computeConversationPressure(userMessages),
-    processingStyle:       computeProcessingStyle(userMessages),
-    offerReadiness:        computeOfferReadiness(todayMessages, veraMessages, userMessages),
-    lastMode:              computeLastMode(veraMessages),
-    memorySignal:          computeMemorySignal(),
-    returningUser:         daysInactive >= 1,
+    emotionalWeight:      computeEmotionalWeight(todayMessages),
+    conversationPressure: computeConversationPressure(userMessages),
+    processingStyle:      computeProcessingStyle(userMessages),
+    questionFatigue:      computeQuestionFatigue(veraMessages),
+    affirmationStreak:    computeAffirmationStreak(veraMessages),
+    offerReadiness:       computeOfferReadiness(todayMessages, veraMessages, userMessages),
+    lastMode:             computeLastMode(veraMessages),
+    memorySignal:         computeMemorySignal(),
+    returningUser:        daysInactive >= 1,
   }
 }
 
@@ -61,8 +63,8 @@ function computeEmotionalWeight(messages) {
   return 'low'
 }
 
-function computeQuestionFatigue(messages) {
-  const veraMessages = messages.filter(m => m.type === 'vera' && m.text)
+// veraMessages: pre-filtered array of Vera-only messages
+function computeQuestionFatigue(veraMessages) {
   if (veraMessages.length === 0) return 0
 
   let fatigue = 0
@@ -83,12 +85,70 @@ function computeQuestionFatigue(messages) {
   return fatigue
 }
 
+// Count consecutive Vera responses that were pure affirmation —
+// no question, no offer, no reframe, no substantive content.
+// veraMessages: pre-filtered array of Vera-only messages
+function computeAffirmationStreak(veraMessages) {
+  let streak = 0
+
+  for (let i = veraMessages.length - 1; i >= 0; i--) {
+    const text = veraMessages[i].text || ''
+
+    const hasQuestion = text.includes('?')
+
+    const offerSignals = [
+      'i wonder if', 'something i notice', 'honestly',
+      'part of me', 'the way i see it', 'what if',
+      'it sounds less like', 'it sounds more like',
+      "there's a book", "there's a concept", "there's an idea",
+      'there\'s a film', 'there\'s a podcast',
+      'one thing that', 'maybe worth',
+      'i might be wrong but', 'something worth',
+      'can i offer', 'something i want to say', 'something i keep',
+      'you keep framing', 'what i hear is', 'what i notice is',
+    ]
+    const hasOfferLanguage = offerSignals.some(s => text.toLowerCase().includes(s))
+
+    // Long responses with substance break the streak even without explicit offer phrases
+    const hasSubstance = text.length > 80 && !isPureAffirmation(text)
+
+    if (hasQuestion || hasOfferLanguage || hasSubstance) break
+
+    streak++
+  }
+
+  return streak
+}
+
+// Returns true for short acknowledgement responses with no real content
+function isPureAffirmation(text) {
+  if (text.length > 80) return false
+
+  const lower = text.toLowerCase().trim()
+  const affirmationPatterns = [
+    /^yeah[\.,…]*/,
+    /^hmm[\.,…]*/,
+    /^that (sounds|feels|seems)/,
+    /^i (hear|understand|see)\b/,
+    /^(that|this) makes sense/,
+    /^that (must be|can be|is)\b/,
+    /^sounds like/,
+    /^right[\.,…]*/,
+    /^of course/,
+    /^absolutely/,
+    /^that's (a lot|hard|heavy|tough|rough)/,
+    /^ugh[\.,…]*/,
+  ]
+
+  return affirmationPatterns.some(p => p.test(lower))
+}
+
 // What kind of conversational state is the user in?
 // More useful than raw emotion for deciding what to offer.
 function computeConversationPressure(userMessages) {
   if (userMessages.length === 0) return 'neutral'
 
-  const recent  = userMessages.slice(-3).map(m => m.text.toLowerCase())
+  const recent   = userMessages.slice(-3).map(m => m.text.toLowerCase())
   const combined = recent.join(' ')
 
   const selfJudgmentKeywords = [
@@ -119,7 +179,6 @@ function computeConversationPressure(userMessages) {
 
   if (seekingKeywords.some(k => combined.includes(k))) return 'seeking'
 
-  // Unprocessed: last message is long and dense
   const lastMsg = recent[recent.length - 1] || ''
   if (lastMsg.split(' ').length > 60) return 'unprocessed'
 
@@ -154,42 +213,39 @@ function computeProcessingStyle(userMessages) {
 // How ready is the user to receive an offer (reframe, insight, practical suggestion)?
 // 0 = not ready, 5 = actively seeking
 function computeOfferReadiness(todayMessages, veraMessages, userMessages) {
-  if (userMessages.length < 2) return 0
+  let readiness = 0
 
-  let score = 0
+  const pressure        = computeConversationPressure(userMessages)
+  const style           = computeProcessingStyle(userMessages)
+  const weight          = computeEmotionalWeight(todayMessages)
+  const affirmStreak    = computeAffirmationStreak(veraMessages)
 
-  // Conversation has gone on long enough to have real material
-  if (todayMessages.length >= 6)  score += 1
-  if (todayMessages.length >= 12) score += 1
+  // Affirmation streak directly drives offer readiness
+  if (affirmStreak >= 2) readiness += 4  // hard rule territory — offer now
+  else if (affirmStreak === 1) readiness += 1
 
-  // Vera has been in listening/affirming mode for several turns
-  const recentVera      = veraMessages.slice(-4)
-  const statementCount  = recentVera.filter(m => !m.text.includes('?')).length
-  if (statementCount >= 2) score += 1
-  if (statementCount >= 3) score += 1
+  // Pressure signals
+  if (pressure === 'rumination')   readiness += 3
+  if (pressure === 'seeking')      readiness += 3
+  if (pressure === 'self_judgment') readiness += 2
+  if (pressure === 'unprocessed')  readiness += 2
+  if (style === 'analytical')      readiness += 1
+  if (style === 'reflective')      readiness += 1
+  if (userMessages.length >= 4)    readiness += 1
 
-  // User's conversational pressure
-  const pressure = computeConversationPressure(userMessages)
-  if (pressure === 'seeking')    score += 2
-  if (pressure === 'rumination') score += 1
+  // Decreases
+  if (weight === 'high')        readiness -= 2
+  if (pressure === 'collapse')  readiness -= 3
+  if (userMessages.length <= 2) readiness -= 3
 
-  // User has an active intention set — more context to build on
-  try {
-    const weekKey  = getWeekKey(new Date())
-    const monthKey = getMonthKey(new Date())
-    const weekInt  = getWeeklyIntention(weekKey)
-    const monthInt = getMonthlyIntention(monthKey)
-    if (weekInt?.focus || monthInt?.focus) score += 1
-  } catch (e) {}
+  // Recent offer decay — if last Vera message was long and had no question,
+  // she likely already offered something; don't pile on
+  if (veraMessages.length > 0) {
+    const lastVera = veraMessages[veraMessages.length - 1]
+    if (lastVera.text.length > 100 && !lastVera.text.includes('?')) readiness -= 2
+  }
 
-  // High emotional weight = still too raw to receive something
-  const weight = computeEmotionalWeight(todayMessages)
-  if (weight === 'high') score -= 1
-
-  // Collapse/self-judgment = not ready for offers yet
-  if (pressure === 'collapse' || pressure === 'self_judgment') score -= 2
-
-  return Math.max(0, Math.min(5, score))
+  return Math.max(0, Math.min(5, readiness))
 }
 
 // What mode was Vera in on her last response?
@@ -207,10 +263,11 @@ function computeLastMode(veraMessages) {
     'can i offer', 'something i want to say', 'something i keep',
     'i keep wanting to name', 'what i hear is', 'what i notice is',
     'you keep framing', "here's what i think", "i want to offer",
+    'i wonder if', 'honestly this', 'part of me wonders',
   ]
   if (offerPhrases.some(p => lower.includes(p))) return 'OFFER'
-  if (hasQuestion)       return 'ASK'
-  if (wordCount <= 12)   return 'SIT_WITH'
+  if (hasQuestion)     return 'ASK'
+  if (wordCount <= 12) return 'SIT_WITH'
   return 'LISTEN'
 }
 
@@ -227,17 +284,18 @@ export function formatSignals(signals, activeNudge = null) {
     '--- Signals ---',
     `DAYS_INACTIVE: ${signals.daysInactive}`,
     `EMOTIONAL_WEIGHT: ${signals.emotionalWeight}`,
-    `QUESTION_FATIGUE: ${signals.questionFatigue}`,
     `CONVERSATION_PRESSURE: ${signals.conversationPressure}`,
     `PROCESSING_STYLE: ${signals.processingStyle}`,
-    `OFFER_READINESS: ${signals.offerReadiness}`,
-    `LAST_MODE: ${signals.lastMode ?? 'null'}`,
+    `QUESTION_FATIGUE: ${signals.questionFatigue}`,
+    `AFFIRMATION_STREAK: ${signals.affirmationStreak}`,
+    `OFFER_READINESS: ${signals.offerReadiness}/5`,
+    `LAST_MODE: ${signals.lastMode || 'none'}`,
     `MEMORY_SIGNAL: ${signals.memorySignal}`,
     `RETURNING_USER: ${signals.returningUser}`,
   ]
 
   if (activeNudge) {
-    lines.push(`ACTIVE_NUDGE: ${activeNudge.type}`)
+    lines.push(`NUDGE: ${activeNudge.type}`)
     lines.push(`If user responds positively to this nudge, end your response with:`)
     lines.push(`[NUDGE_YES: ${activeNudge.type}]`)
     lines.push(`If user declines or changes subject, end with:`)
