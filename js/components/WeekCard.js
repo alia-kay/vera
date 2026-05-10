@@ -164,7 +164,7 @@ function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, o
       ${isMonthly && html`
         <div style=${{
           fontFamily: "'Cormorant Garamond', serif",
-          fontSize: '13px',
+          fontSize: '16px',
           fontStyle: 'italic',
           color: 'var(--text-dim)',
           opacity: 0.6,
@@ -270,7 +270,7 @@ function ReviewForm({ periodKey, periodType, intention, existingAnswers, onCompl
       <div style=${{ padding: '20px 0', textAlign: 'center' }}>
         <div style=${{
           fontFamily: "'Cormorant Garamond', serif",
-          fontSize: '15px',
+          fontSize: '16px',
           fontStyle: 'italic',
           color: 'var(--text-dim)',
           lineHeight: 1.6,
@@ -475,7 +475,7 @@ export default function WeekCard({
           <div class="week-card-expanded">
             <div style=${{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '15px',
+              fontSize: '16px',
               fontStyle: 'italic',
               color: 'var(--text-muted)',
               lineHeight: 1.6,
@@ -495,7 +495,7 @@ export default function WeekCard({
           <div class="week-card-expanded">
             <div style=${{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '15px',
+              fontSize: '16px',
               fontStyle: 'italic',
               color: 'var(--text-dim)',
               opacity: 0.5,
