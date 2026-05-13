@@ -36,7 +36,7 @@ export function computeNudge() {
     const key = `weekly_review_${reviewWeekKey}`
     if (!getWeeklyReview(reviewWeekKey) && shouldRetryNudge(key)) {
       recordNudgeAttempt(key)
-      return { type: 'weekly_review', weekKey: reviewWeekKey }
+      return { type: 'weekly_review', weekKey: reviewWeekKey, dow, isLastAttempt: isTue }
     }
   }
 
@@ -45,7 +45,7 @@ export function computeNudge() {
     const key = `weekly_intend_${weekKey}`
     if (!getWeeklyIntention(weekKey)?.sentence && shouldRetryNudge(key)) {
       recordNudgeAttempt(key)
-      return { type: 'weekly_intention', weekKey }
+      return { type: 'weekly_intention', weekKey, dow, isCurrentWeek: isMon || isTue, isLastAttempt: isTue }
     }
   }
 
@@ -392,8 +392,11 @@ export function formatSignals(signals, activeNudge = null) {
     `MEMORY_SIGNAL: ${signals.memorySignal}`,
     `RETURNING_USER: ${signals.returningUser}`,
     signals.stale ? `STALE: ${signals.stale}` : null,
-    activeNudge   ? `NUDGE: ${activeNudge.type}` : null,
-    activeNudge   ? `NUDGE_KEY: ${activeNudge.weekKey || activeNudge.monthKey}` : null,
+    activeNudge                        ? `NUDGE: ${activeNudge.type}` : null,
+    activeNudge                        ? `NUDGE_KEY: ${activeNudge.weekKey || activeNudge.monthKey}` : null,
+    activeNudge?.dow !== undefined     ? `NUDGE_DOW: ${activeNudge.dow}` : null,
+    activeNudge?.isLastAttempt         ? `NUDGE_LAST_ATTEMPT: true` : null,
+    activeNudge?.isCurrentWeek         ? `NUDGE_CURRENT_WEEK: true` : null,
   ].filter(Boolean)
 
   lines.push('--- End signals ---')
