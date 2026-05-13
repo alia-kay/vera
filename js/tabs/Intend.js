@@ -101,10 +101,18 @@ function makeMonthPeriod(year, month) {
 function getMonthsToShow(displayYear, displayMonth) {
   const months = []
 
-  // Show current (display) month always
+  // Always show previous 2 months
+  for (let i = 2; i >= 1; i--) {
+    let m = displayMonth - i
+    let y = displayYear
+    if (m < 1) { m += 12; y-- }
+    months.push(makeMonthPeriod(y, m))
+  }
+
+  // Current month
   months.push(makeMonthPeriod(displayYear, displayMonth))
 
-  // Show 2 future months
+  // Next 2 months
   for (let i = 1; i <= 2; i++) {
     let m = displayMonth + i
     let y = displayYear
@@ -112,20 +120,7 @@ function getMonthsToShow(displayYear, displayMonth) {
     months.push(makeMonthPeriod(y, m))
   }
 
-  // Show past months ONLY if they have an intention set
-  const pastMonths = []
-  for (let i = 1; i <= 6; i++) {
-    let m = displayMonth - i
-    let y = displayYear
-    if (m < 1) { m += 12; y-- }
-    const monthKey = `${y}-${String(m).padStart(2, '0')}`
-    const intention = getMonthlyIntention(monthKey)
-    if (intention?.sentence) {
-      pastMonths.unshift(makeMonthPeriod(y, m))
-    }
-  }
-
-  return [...pastMonths, ...months]
+  return months
 }
 
 function isThisPeriod(startDate, endDate, periodType, periodKey) {
@@ -157,7 +152,7 @@ function getMonthLabelBig(year, month) {
 
 // ─── IntendTab ────────────────────────────────────────────────────────────────
 
-export default function IntendTab() {
+export default function IntendTab({ version }) {
   const today = new Date()
 
   const [view,             setView]             = React.useState('intentions')

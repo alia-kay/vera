@@ -9,12 +9,29 @@ import {
   markListItemDone,
   addToList,
   removeFromList,
+  getWeeklyIntention, saveWeeklyIntention,
+  getMonthlyIntention, saveMonthlyIntention,
+  getWeeklyReview, saveWeeklyReview,
+  getMonthlyReview, saveMonthlyReview,
+  getWeekKey, getMonthKey,
+  markNudgeDeclined,
 } from '../lib/storage.js'
 import { scanForSymptoms } from '../lib/scanner.js'
 import { sendMessage, regenerateSummary } from '../lib/api.js'
 import ChatBubble from '../components/ChatBubble.js'
 import DaySeparator from '../components/DaySeparator.js'
 import InputBar from '../components/InputBar.js'
+
+const WEEKLY_QUESTIONS = [
+  'How did this week actually feel?',
+  'What was the hardest moment this week — and what was the best one?',
+  'What do you want to carry forward from this week?',
+]
+const MONTHLY_QUESTIONS = [
+  'How would you describe the shape of this month?',
+  'What shifted in you — even slightly — that you want to carry forward?',
+  'What do you want to move toward next month?',
+]
 
 const html = htm.bind(React.createElement)
 
@@ -55,7 +72,7 @@ function formatTime(isoString) {
 
 export default function ShareTab({
   messages, setMessages, setActiveTab,
-  onPatternAdded, onListUpdated,
+  onPatternAdded, onListUpdated, onIntentionUpdated,
   activeNudge, onNudgeAccepted, onNudgeDeclined,
 }) {
   const [inputText,  setInputText]  = React.useState('')
@@ -100,6 +117,8 @@ export default function ShareTab({
             .replace(/\[ADD:[^\]]*$/i, '')
             .replace(/\[REMOVE:[^\]]*$/i, '')
             .replace(/\[NUDGE[^\]]*$/i, '')
+            .replace(/\[SAVE_INTENTION:[^\]]*$/i, '')
+            .replace(/\[SAVE_REVIEW:[^\]]*$/i, '')
             .trimEnd()
 
           setMessages(prev => prev.map(m =>
@@ -190,8 +209,77 @@ export default function ShareTab({
         if (onListUpdated) onListUpdated()
       }
 
-      if (result.nudgeYes && onNudgeAccepted) onNudgeAccepted(result.nudgeYes)
-      if (result.nudgeNo  && onNudgeDeclined) onNudgeDeclined()
+      if (result.nudgeDeclined) {
+        // Permanently decline so the retry schedule stops for this period
+        if (activeNudge) {
+          const periodKey = activeNudge.weekKey || activeNudge.monthKey
+          const prefixMap = {
+            weekly_review:    'weekly_review',
+            weekly_intention: 'weekly_intend',
+            monthly_review:   'monthly_review',
+            monthly_intention:'monthly_intend',
+          }
+          const prefix = prefixMap[activeNudge.type]
+          if (prefix && periodKey) markNudgeDeclined(`${prefix}_${periodKey}`)
+        }
+        if (onNudgeDeclined) onNudgeDeclined()
+      }
+
+      if (result.saveReview) {
+        const { period, weekKey, monthKey, checkedItems, q1, q2, q3 } = result.saveReview
+        const isMonthly = period === 'monthly'
+        const key       = weekKey || monthKey || (isMonthly ? getMonthKey(new Date()) : getWeekKey(new Date()))
+        const answers   = [q1 || '', q2 || '', q3 || '']
+        const questions = isMonthly ? MONTHLY_QUESTIONS : WEEKLY_QUESTIONS
+
+        // Mark checklist items done if specified
+        if (checkedItems) {
+          const checkedIds = checkedItems.split(',').map(s => s.trim()).filter(Boolean)
+          const intention  = isMonthly ? getMonthlyIntention(key) : getWeeklyIntention(key)
+          if (intention && checkedIds.length > 0) {
+            intention.items = (intention.items || []).map(item => ({
+              ...item,
+              checked: checkedIds.includes(item.id) ? true : item.checked,
+            }))
+            isMonthly ? saveMonthlyIntention(key, intention) : saveWeeklyIntention(key, intention)
+          }
+        }
+
+        // Preserve pre-generated insights; only save answers + questions
+        const existing = isMonthly ? getMonthlyReview(key) : getWeeklyReview(key)
+        const saveFn   = isMonthly ? saveMonthlyReview : saveWeeklyReview
+        saveFn(key, {
+          ...(existing || {}),
+          completedAt: new Date().toISOString(),
+          questions,
+          answers,
+          moodWord: existing?.moodWord || answers[0]?.slice(0, 30) || '',
+        })
+
+        if (onIntentionUpdated) onIntentionUpdated()
+        if (onNudgeAccepted)    onNudgeAccepted()
+      }
+
+      if (result.saveIntention) {
+        const { period, weekKey, monthKey, sentence, focus, items } = result.saveIntention
+        const isMonthly = period === 'monthly'
+        const key       = weekKey || monthKey || (isMonthly ? getMonthKey(new Date()) : getWeekKey(new Date()))
+
+        const intentionData = {
+          sentence:   sentence || '',
+          focusWords: focus ? focus.split(',').map(s => s.trim()).filter(Boolean) : [],
+          items:      items  ? items.split(',').map(text => ({
+            id: generateId(), text: text.trim(), checked: false,
+          })).filter(i => i.text) : [],
+          createdAt:  new Date().toISOString(),
+          updatedAt:  new Date().toISOString(),
+        }
+
+        isMonthly ? saveMonthlyIntention(key, intentionData) : saveWeeklyIntention(key, intentionData)
+
+        if (onIntentionUpdated) onIntentionUpdated()
+        if (onNudgeAccepted)    onNudgeAccepted()
+      }
 
       try {
         elevatePatterns()

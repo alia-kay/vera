@@ -1,7 +1,105 @@
 import {
   getEntriesForDate, getRecentEntries,
   getWeeklyIntention, getMonthlyIntention, getWeekKey, getMonthKey,
+  getWeeklyReview, getMonthlyReview,
+  shouldRetryNudge, recordNudgeAttempt,
 } from './storage.js'
+
+// ─── Nudge computation ────────────────────────────────────────────────────────
+
+export function computeNudge() {
+  const today = new Date()
+  const dow   = today.getDay()
+  const dom   = today.getDate()
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+
+  const weekKey  = getWeekKey(today)
+  const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}`
+
+  const prevWeek = new Date(today); prevWeek.setDate(today.getDate() - 7)
+  const prevWeekKey = getWeekKey(prevWeek)
+
+  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const prevMonthKey  = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth()+1).padStart(2,'0')}`
+
+  const isSun      = dow === 0
+  const isMon      = dow === 1
+  const isTue      = dow === 2
+  const isLastDOM   = dom === daysInMonth
+  const isSecLastDOM= dom === daysInMonth - 1
+  const isFirstDOM  = dom === 1
+  const isSecondDOM = dom === 2
+
+  // Weekly review — try Sun, Mon, Tue (3 attempts max)
+  if (isSun || isMon || isTue) {
+    const reviewWeekKey = prevWeekKey
+    const key = `weekly_review_${reviewWeekKey}`
+    if (!getWeeklyReview(reviewWeekKey) && shouldRetryNudge(key)) {
+      recordNudgeAttempt(key)
+      return { type: 'weekly_review', weekKey: reviewWeekKey }
+    }
+  }
+
+  // Weekly intention — try Sun, Mon, Tue (3 attempts max, after review)
+  if (isSun || isMon || isTue) {
+    const key = `weekly_intend_${weekKey}`
+    if (!getWeeklyIntention(weekKey)?.sentence && shouldRetryNudge(key)) {
+      recordNudgeAttempt(key)
+      return { type: 'weekly_intention', weekKey }
+    }
+  }
+
+  // Monthly review — last 2 days of month + first 2 days of new month (4 attempts max)
+  if (isSecLastDOM || isLastDOM || isFirstDOM || isSecondDOM) {
+    const reviewMonthKey = (isSecLastDOM || isLastDOM) ? monthKey : prevMonthKey
+    const key = `monthly_review_${reviewMonthKey}`
+    if (!getMonthlyReview(reviewMonthKey) && shouldRetryNudge(key)) {
+      recordNudgeAttempt(key)
+      return { type: 'monthly_review', monthKey: reviewMonthKey }
+    }
+  }
+
+  // Monthly intention — first 2 days of new month (2 attempts max, after monthly review)
+  if (isFirstDOM || isSecondDOM) {
+    const key = `monthly_intend_${monthKey}`
+    if (!getMonthlyIntention(monthKey)?.sentence && shouldRetryNudge(key)) {
+      recordNudgeAttempt(key)
+      return { type: 'monthly_intention', monthKey }
+    }
+  }
+
+  return null
+}
+
+// ─── Stale conversation detection ─────────────────────────────────────────────
+
+export function computeStaleSignal(todayMessages) {
+  const userMessages = todayMessages.filter(m => m.type === 'user')
+
+  if (userMessages.length < 2) return null
+
+  const lastUser    = userMessages[userMessages.length - 1]
+  const wordCount   = lastUser.text.split(' ').length
+
+  if (wordCount < 5 && userMessages.length >= 4) return 'low_engagement'
+
+  if (userMessages.length >= 4) {
+    const recent     = userMessages.slice(-4).map(m => m.text.toLowerCase())
+    const keyPhrases = ["i don't know", 'same', 'again', 'still']
+    if (keyPhrases.filter(k => recent.some(t => t.includes(k))).length >= 2) {
+      return 'circular'
+    }
+  }
+
+  const closingPhrases = ['thanks','ok thanks','good night','goodnight','bye','talk later','that helps']
+  if (closingPhrases.some(p => lastUser.text.toLowerCase().includes(p))) {
+    return 'natural_end'
+  }
+
+  return null
+}
+
+// ─── Main signals ──────────────────────────────────────────────────────────────
 
 // Compute all conversation signals before an AI call.
 // todayMessages: the current conversation messages array
@@ -21,6 +119,7 @@ export function computeSignals(todayMessages = []) {
     lastMode:             computeLastMode(veraMessages),
     memorySignal:         computeMemorySignal(),
     returningUser:        daysInactive >= 1,
+    stale:                computeStaleSignal(todayMessages),
   }
 }
 
@@ -292,15 +391,10 @@ export function formatSignals(signals, activeNudge = null) {
     `LAST_MODE: ${signals.lastMode || 'none'}`,
     `MEMORY_SIGNAL: ${signals.memorySignal}`,
     `RETURNING_USER: ${signals.returningUser}`,
-  ]
-
-  if (activeNudge) {
-    lines.push(`NUDGE: ${activeNudge.type}`)
-    lines.push(`If user responds positively to this nudge, end your response with:`)
-    lines.push(`[NUDGE_YES: ${activeNudge.type}]`)
-    lines.push(`If user declines or changes subject, end with:`)
-    lines.push(`[NUDGE_NO: ${activeNudge.type}]`)
-  }
+    signals.stale ? `STALE: ${signals.stale}` : null,
+    activeNudge   ? `NUDGE: ${activeNudge.type}` : null,
+    activeNudge   ? `NUDGE_KEY: ${activeNudge.weekKey || activeNudge.monthKey}` : null,
+  ].filter(Boolean)
 
   lines.push('--- End signals ---')
   return lines.join('\n')

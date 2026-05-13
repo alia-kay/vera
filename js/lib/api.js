@@ -128,8 +128,9 @@ export function parseVeraResponse(rawResponse) {
   const aheadMatch    = rawResponse.match(/\[AHEAD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
   const addMatch      = rawResponse.match(/\[ADD:\s*(.+?)(?:\s*\|\s*type:\s*(.+?))?(?:\s*\|\s*author:\s*(.+?))?\]/i)
   const removeMatch   = rawResponse.match(/\[REMOVE:\s*(.+?)\]/i)
-  const nudgeYesMatch = rawResponse.match(/\[NUDGE_YES:\s*(.+?)\]/i)
-  const nudgeNoMatch  = rawResponse.match(/\[NUDGE_NO:\s*(.+?)\]/i)
+  const nudgeDeclined = /\[NUDGE_DECLINED\]/i.test(rawResponse)
+  const saveIntMatch  = rawResponse.match(/\[SAVE_INTENTION:\s*(.+?)\]/i)
+  const saveRevMatch  = rawResponse.match(/\[SAVE_REVIEW:\s*(.+?)\]/i)
 
   const displayText = rawResponse
     .replace(/\[TRACK:.*?\]/gi, '')
@@ -137,37 +138,35 @@ export function parseVeraResponse(rawResponse) {
     .replace(/\[AHEAD:.*?\]/gi, '')
     .replace(/\[ADD:.*?\]/gi, '')
     .replace(/\[REMOVE:.*?\]/gi, '')
-    .replace(/\[NUDGE_YES:.*?\]/gi, '')
-    .replace(/\[NUDGE_NO:.*?\]/gi, '')
+    .replace(/\[NUDGE_DECLINED\]/gi, '')
+    .replace(/\[SAVE_INTENTION:.*?\]/gi, '')
+    .replace(/\[SAVE_REVIEW:.*?\]/gi, '')
     .trim()
 
-  const newPattern = trackMatch
-    ? { name: trackMatch[1].trim(), domain: trackMatch[2].trim().toLowerCase() }
-    : null
+  function parseTagFields(str) {
+    const result = {}
+    const parts  = str.split('|').map(s => s.trim())
+    if (parts[0] && !parts[0].includes(':')) result.period = parts[0].trim()
+    parts.forEach(part => {
+      const idx = part.indexOf(':')
+      if (idx > -1) {
+        result[part.slice(0, idx).trim()] = part.slice(idx + 1).trim()
+      }
+    })
+    return result
+  }
 
-  const doneItem = doneMatch ? {
-    title:  doneMatch[1].trim(),
-    type:   doneMatch[2]?.trim() || 'Book',
-    author: doneMatch[3]?.trim() || null,
-  } : null
-
-  const aheadItem = aheadMatch ? {
-    title:  aheadMatch[1].trim(),
-    type:   aheadMatch[2]?.trim() || 'Book',
-    author: aheadMatch[3]?.trim() || null,
-  } : null
-
-  const newListItem = addMatch ? {
-    title:  addMatch[1].trim(),
-    type:   addMatch[2]?.trim() || 'Other',
-    author: addMatch[3]?.trim() || null,
-  } : null
-
-  const removeTitle = removeMatch   ? removeMatch[1].trim()   : null
-  const nudgeYes    = nudgeYesMatch ? nudgeYesMatch[1].trim() : null
-  const nudgeNo     = nudgeNoMatch  ? nudgeNoMatch[1].trim()  : null
-
-  return { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo }
+  return {
+    displayText,
+    newPattern:    trackMatch ? { name: trackMatch[1].trim(), domain: trackMatch[2].trim().toLowerCase() } : null,
+    doneItem:      doneMatch  ? { title: doneMatch[1].trim(),  type: doneMatch[2]?.trim()  || 'Book', author: doneMatch[3]?.trim()  || null } : null,
+    aheadItem:     aheadMatch ? { title: aheadMatch[1].trim(), type: aheadMatch[2]?.trim() || 'Book', author: aheadMatch[3]?.trim() || null } : null,
+    newListItem:   addMatch   ? { title: addMatch[1].trim(),   type: addMatch[2]?.trim()   || 'Other', author: addMatch[3]?.trim() || null } : null,
+    removeTitle:   removeMatch ? removeMatch[1].trim() : null,
+    nudgeDeclined,
+    saveIntention: saveIntMatch ? parseTagFields(saveIntMatch[1]) : null,
+    saveReview:    saveRevMatch ? parseTagFields(saveRevMatch[1]) : null,
+  }
 }
 
 // ─── Send message ─────────────────────────────────────────────────────────────
@@ -209,14 +208,14 @@ export async function sendMessage(userText, allMessages = [], activeNudge = null
   }
 
   const rawResponse = await callAI(systemPrompt, historyMessages, MAX_TOKENS_CONVERSATION, onChunk)
-  const { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo } = parseVeraResponse(rawResponse)
+  const result = parseVeraResponse(rawResponse)
 
-  if (newPattern) {
-    addCustomPattern(newPattern.name, newPattern.domain)
-    if (DEBUG()) console.log('[Vera] new pattern tracked:', newPattern)
+  if (result.newPattern) {
+    addCustomPattern(result.newPattern.name, result.newPattern.domain)
+    if (DEBUG()) console.log('[Vera] new pattern tracked:', result.newPattern)
   }
 
-  return { displayText, newPattern, doneItem, aheadItem, newListItem, removeTitle, nudgeYes, nudgeNo }
+  return result
 }
 
 // ─── Summary regeneration ─────────────────────────────────────────────────────
@@ -260,6 +259,83 @@ export async function generateWeeklyReview(answers, questions, intention, isMont
       insights: ['Something meaningful happened — worth sitting with.'],
       moodWord: 'Present',
     }
+  }
+}
+
+// ─── Period insights pre-generation ──────────────────────────────────────────
+// Called on app boot (not from review flow). Generates insights from conversation
+// data and stores them so they appear when user opens the review card.
+
+export async function generatePeriodInsights(entries, intention, isMonthly = false) {
+  if (!entries || entries.length === 0) return null
+
+  const period = isMonthly ? 'month' : 'week'
+
+  const conversationText = entries
+    .filter(e => e.userText)
+    .map(e => `Person: ${e.userText}`)
+    .join('\n')
+
+  if (!conversationText.trim()) return null
+
+  const intentionContext = intention?.sentence
+    ? `Their ${period}ly intention was: "${intention.sentence}"${
+        intention.focusWords?.length
+          ? ` (focus: ${intention.focusWords.join(', ')})`
+          : ''
+      }${
+        intention.items?.length
+          ? `\nChecklist: ${intention.items.map(i =>
+              `${i.checked ? '✓' : '○'} ${i.text}`
+            ).join(', ')}`
+          : ''
+      }`
+    : `No ${period}ly intention was set.`
+
+  const prompt = `\
+You are Vera. Read what this person shared during the past ${period}.
+
+${intentionContext}
+
+What they shared:
+${conversationText}
+
+Generate exactly 3 insights based on what you observed in their conversations.
+Not what they told you in a review — what actually came through this ${period}.
+
+1. Intention insight — how conversations connected to their intention,
+   or what theme emerged if no intention was set
+2. Texture — the emotional shape of the ${period} in one sentence.
+   What was it like to be them this ${period}? Specific, not generic.
+3. Thread — one thing worth carrying forward: a question, a direction,
+   or a pattern that kept coming up
+
+Rules:
+- Each insight: one sentence maximum
+- Specific — reference what actually came up
+- Vera's voice: warm, perceptive, direct. No therapy language.
+- Never say "worth sitting with"
+- Never generic: "You had a challenging ${period}"
+
+Return JSON:
+{
+  "insights": ["insight 1", "insight 2", "insight 3"],
+  "moodWord": "2-4 word phrase capturing the emotional texture"
+}
+
+Return only valid JSON. No preamble, no markdown fences.`
+
+  try {
+    const raw   = await callAI(
+      'You are Vera. Return only valid JSON as instructed.',
+      [{ role: 'user', content: prompt }],
+      300
+    )
+    const clean = raw.replace(/```json|```/g, '').trim()
+    return JSON.parse(clean)
+  } catch(e) {
+    console.warn('generatePeriodInsights failed:', e)
+    return null
   }
 }
 

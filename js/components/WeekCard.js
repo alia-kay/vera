@@ -18,7 +18,7 @@ const FOCUS_WORDS = [
 
 const WEEKLY_QUESTIONS = [
   'How did this week actually feel?',
-  'What was the hardest moment, and what did it ask of you?',
+  'What was the hardest moment this week — and what was the best one?',
   'What do you want to carry forward from this week?',
 ]
 
@@ -434,7 +434,7 @@ export default function WeekCard({
     } else {
       // reviews view
       if (isReviewing || isEditReview) {
-        const existingAnswers = review?.responses?.answers || null
+        const existingAnswers = review?.answers || review?.responses?.answers || null
         expandedContent = html`
           <div class="card-divider"></div>
           <div class="week-card-expanded">
@@ -452,8 +452,9 @@ export default function WeekCard({
           </div>
         `
       } else if (reviewStatus === 'done') {
-        const insights = review?.responses?.insights || []
-        const moodWord = review?.responses?.moodWord || null
+        // Support both new flat structure and old responses-wrapped structure
+        const insights = review?.insights || review?.responses?.insights || []
+        const moodWord = review?.moodWord || review?.responses?.moodWord || null
         expandedContent = html`
           <div class="card-divider"></div>
           <div class="week-card-expanded">
@@ -501,7 +502,10 @@ export default function WeekCard({
               opacity: 0.5,
               lineHeight: 1.6,
             }}>
-              "This week isn't over yet. Come back when it is."
+              ${isWeek
+                ? '"This week isn\'t over yet. Come back when it is."'
+                : '"This month isn\'t over yet. Come back when it is."'
+              }
             </div>
           </div>
         `

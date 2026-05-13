@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 const VERSION_KEY = 'vera_schema_version'
 
@@ -15,6 +15,11 @@ migrations[2] = function() {
     console.warn('Migration 2 failed:', e)
   }
 }
+
+// v3: review records changed from { periodKey, completedAt, responses: {...} }
+// to a flat structure { periodKey, insights, moodWord, answers, ... }.
+// Purely additive — old records still work via backwards-compatible reads in WeekCard.
+migrations[3] = function() { /* additive — no data transform needed */ }
 
 // Example of how future migrations will look:
 // migrations[2] = function() {

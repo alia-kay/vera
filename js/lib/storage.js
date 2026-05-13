@@ -547,11 +547,12 @@ export function getWeeklyReview(weekKey) {
   return readJSON(`vera_review_week_${weekKey}`, null)
 }
 
-export function saveWeeklyReview(weekKey, responses) {
+export function saveWeeklyReview(weekKey, data) {
+  const existing = getWeeklyReview(weekKey)
   writeJSON(`vera_review_week_${weekKey}`, {
+    ...(existing || {}),
+    ...data,
     periodKey: weekKey,
-    completedAt: new Date().toISOString(),
-    responses
   })
 }
 
@@ -559,11 +560,12 @@ export function getMonthlyReview(monthKey) {
   return readJSON(`vera_review_month_${monthKey}`, null)
 }
 
-export function saveMonthlyReview(monthKey, responses) {
+export function saveMonthlyReview(monthKey, data) {
+  const existing = getMonthlyReview(monthKey)
   writeJSON(`vera_review_month_${monthKey}`, {
+    ...(existing || {}),
+    ...data,
     periodKey: monthKey,
-    completedAt: new Date().toISOString(),
-    responses
   })
 }
 
@@ -902,6 +904,69 @@ export function markNudgeAsked(type, key) {
   if (!state[type]) state[type] = []
   if (!state[type].includes(key)) state[type].push(key)
   saveNudgeState(state)
+}
+
+// ─── Nudge retry tracking ─────────────────────────────────────────────────────
+
+export function getNudgeAttempts() {
+  try { return JSON.parse(localStorage.getItem('vera_nudge_attempts') || '{}') }
+  catch(e) { return {} }
+}
+
+export function recordNudgeAttempt(key) {
+  try {
+    const attempts = getNudgeAttempts()
+    if (!attempts[key]) attempts[key] = []
+    const today = getTodayString()
+    if (!attempts[key].includes(today)) attempts[key].push(today)
+    localStorage.setItem('vera_nudge_attempts', JSON.stringify(attempts))
+  } catch(e) { console.warn('recordNudgeAttempt failed:', e) }
+}
+
+export function getNudgeAttemptsCount(key) {
+  return (getNudgeAttempts()[key] || []).length
+}
+
+export function markNudgeDeclined(key) {
+  try {
+    const raw = localStorage.getItem('vera_nudge_declined') || '[]'
+    const declined = JSON.parse(raw)
+    if (!declined.includes(key)) declined.push(key)
+    localStorage.setItem('vera_nudge_declined', JSON.stringify(declined))
+  } catch(e) { console.warn('markNudgeDeclined failed:', e) }
+}
+
+export function isNudgeDeclined(key) {
+  try {
+    const raw = localStorage.getItem('vera_nudge_declined') || '[]'
+    return JSON.parse(raw).includes(key)
+  } catch(e) { return false }
+}
+
+export function shouldRetryNudge(key) {
+  const count = getNudgeAttemptsCount(key)
+  const isReview = key.includes('review')
+  // Reviews: up to 3 attempts; intentions: up to 2 attempts
+  const maxAttempts = isReview ? 3 : 2
+  return count < maxAttempts && !isNudgeDeclined(key)
+}
+
+// ─── Entries by month ──────────────────────────────────────────────────────────
+
+export function getEntriesForMonth(monthKey) {
+  try {
+    const [year, month] = monthKey.split('-').map(Number)
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const entries = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+      entries.push(...(getEntriesForDate(dateStr) || []))
+    }
+    return entries
+  } catch(e) {
+    console.error('Vera: getEntriesForMonth failed:', e)
+    return []
+  }
 }
 
 // ─── Export scanner for convenience ──────────────────────────────────────────

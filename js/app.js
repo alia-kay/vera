@@ -10,8 +10,8 @@ import Onboarding from './onboarding/Onboarding.js'
 // Storage import ensures migrations run before any component renders
 import * as storageLib from './lib/storage.js'
 import { buildContextBlock } from './prompts/index.js'
-import { parseVeraResponse, generateClosing, generateReEngagementOpening, generateContextualOpening } from './lib/api.js'
-import { computeSignals } from './lib/signals.js'
+import { parseVeraResponse, generateClosing, generateReEngagementOpening, generateContextualOpening, generatePeriodInsights } from './lib/api.js'
+import { computeSignals, computeNudge } from './lib/signals.js'
 
 if (localStorage.getItem('vera_debug') === 'true') {
   console.log('[Vera] debug mode active')
@@ -54,75 +54,60 @@ function formatTime(isoString) {
 }
 
 // ─── Nudge system ─────────────────────────────────────────────────────────────
+// computeNudge() is imported from signals.js — handles retry schedule + side effects
 
-function computeNudge() {
-  const today        = new Date()
-  const dayOfWeek    = today.getDay()
-  const dayOfMonth   = today.getDate()
-  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-  const weekKey      = storageLib.getWeekKey(today)
-  const monthKey     = storageLib.getMonthKey(today)
-  const nudgeState   = storageLib.getNudgeState()
+// ─── Insights pre-generation ──────────────────────────────────────────────────
 
-  // Weekly review — ask on Sun (0) or Mon (1)
-  const shouldAskWeeklyReview =
-    (dayOfWeek === 0 || dayOfWeek === 1) &&
-    !storageLib.getWeeklyReview(weekKey) &&
-    !nudgeState.askedReview?.includes(weekKey)
+async function checkAndPreGenerateInsights() {
+  try {
+    const today       = new Date()
+    const dow         = today.getDay()
+    const dom         = today.getDate()
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
-  // Weekly intention — only after review is done/declined
-  const reviewDoneOrDeclined = storageLib.getWeeklyReview(weekKey) || nudgeState.askedReview?.includes(weekKey)
-  const shouldAskWeeklyIntention =
-    (dayOfWeek === 0 || dayOfWeek === 1) &&
-    reviewDoneOrDeclined &&
-    !storageLib.getWeeklyIntention(weekKey) &&
-    !nudgeState.askedIntention?.includes(weekKey)
+    // Weekly — Sunday or Monday
+    if (dow === 0 || dow === 1) {
+      const prevWeek    = new Date(today); prevWeek.setDate(today.getDate() - 7)
+      const prevWeekKey = storageLib.getWeekKey(prevWeek)
+      const existing    = storageLib.getWeeklyReview(prevWeekKey)
 
-  // Monthly review — last day or first day of month
-  const isMonthEnd = dayOfMonth === lastDayOfMonth || dayOfMonth === 1
-  const shouldAskMonthlyReview =
-    isMonthEnd &&
-    !storageLib.getMonthlyReview(monthKey) &&
-    !nudgeState.askedMonthlyReview?.includes(monthKey)
+      if (!existing?.insights) {
+        const entries   = storageLib.getEntriesForWeek(prevWeekKey)
+        const intention = storageLib.getWeeklyIntention(prevWeekKey)
+        const result    = await generatePeriodInsights(entries, intention, false)
+        if (result) {
+          storageLib.saveWeeklyReview(prevWeekKey, {
+            ...(storageLib.getWeeklyReview(prevWeekKey) || {}),
+            insights:              result.insights,
+            moodWord:              result.moodWord,
+            insightsGeneratedAt:   new Date().toISOString(),
+          })
+        }
+      }
+    }
 
-  // Monthly intention — first 2 days of month, after monthly review
-  const monthlyReviewDoneOrDeclined = storageLib.getMonthlyReview(monthKey) || nudgeState.askedMonthlyReview?.includes(monthKey)
-  const shouldAskMonthlyIntention =
-    dayOfMonth <= 2 &&
-    monthlyReviewDoneOrDeclined &&
-    !storageLib.getMonthlyIntention(monthKey) &&
-    !nudgeState.askedMonthlyIntention?.includes(monthKey)
+    // Monthly — last day or first day of month
+    if (dom === daysInMonth || dom === 1) {
+      const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const prevMonthKey  = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+      const existing      = storageLib.getMonthlyReview(prevMonthKey)
 
-  if (shouldAskWeeklyReview)     return { type: 'weekly_review',    weekKey }
-  if (shouldAskWeeklyIntention)  return { type: 'weekly_intention',  weekKey }
-  if (shouldAskMonthlyReview)    return { type: 'monthly_review',   monthKey }
-  if (shouldAskMonthlyIntention) return { type: 'monthly_intention', monthKey }
-  return null
-}
-
-function nudgeToStorageKey(nudge) {
-  switch (nudge.type) {
-    case 'weekly_review':    return { storageType: 'askedReview',          key: nudge.weekKey }
-    case 'weekly_intention': return { storageType: 'askedIntention',       key: nudge.weekKey }
-    case 'monthly_review':   return { storageType: 'askedMonthlyReview',   key: nudge.monthKey }
-    case 'monthly_intention':return { storageType: 'askedMonthlyIntention',key: nudge.monthKey }
-    default: return null
-  }
-}
-
-function buildNudgeMessage(nudge) {
-  const profile  = storageLib.getUserProfile()
-  const name     = profile?.name ? `, ${profile.name}` : ''
-
-  switch (nudge.type) {
-    case 'weekly_review':
-      return `hey${name} — how did the week go? do you want to take a few minutes to look back on it?`
-    case 'weekly_intention':
-      return `new week ahead${name} — do you want to set an intention for it? only takes a moment.`
-    case 'monthly_review':
-      return `the month is wrapping up${name} — do you want to do a quick reflection on how it went?`
-    case 'monthly_intention':
-      return `new month${name} — do you want to set an intention for it?`
+      if (!existing?.insights) {
+        const entries   = storageLib.getEntriesForMonth(prevMonthKey)
+        const intention = storageLib.getMonthlyIntention(prevMonthKey)
+        const result    = await generatePeriodInsights(entries, intention, true)
+        if (result) {
+          storageLib.saveMonthlyReview(prevMonthKey, {
+            ...(storageLib.getMonthlyReview(prevMonthKey) || {}),
+            insights:              result.insights,
+            moodWord:              result.moodWord,
+            insightsGeneratedAt:   new Date().toISOString(),
+          })
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('[Vera] checkAndPreGenerateInsights failed silently:', e)
   }
 }
 
@@ -213,26 +198,23 @@ async function initialiseConversation(setMessages, setActiveNudge) {
     all.push({ type: 'separator', date: storageLib.getTodayString(), label: 'Today' })
     setMessages([...all]) // render history + separator immediately
 
-    // Check nudge first, then follow-up, then regular opening
+    // Determine if there's a pending nudge (sets it as active signal for the AI)
     const nudge = computeNudge()
-    let openingText
+    if (nudge) setActiveNudge(nudge)
 
-    if (nudge) {
-      openingText = buildNudgeMessage(nudge)
-      setActiveNudge(nudge)
+    // Opening message — regular regardless of nudge (AI raises it naturally)
+    let openingText
+    const followUp = storageLib.popPendingFollowUp()
+    if (followUp) {
+      const profile  = storageLib.getUserProfile()
+      const nameStr  = profile?.name ? `, ${profile.name}` : ''
+      const typeVerb = {
+        'Book': 'finished', 'Film': 'watched', 'Podcast': 'listened to',
+        'Article': 'read', 'Other': 'finished',
+      }[followUp.type] || 'finished'
+      openingText = `hey${nameStr} — you ${typeVerb} ${followUp.title}. what did you make of it?`
     } else {
-      const followUp = storageLib.popPendingFollowUp()
-      if (followUp) {
-        const profile = storageLib.getUserProfile()
-        const nameStr = profile?.name ? `, ${profile.name}` : ''
-        const typeVerb = {
-          'Book': 'finished', 'Film': 'watched', 'Podcast': 'listened to',
-          'Article': 'read', 'Other': 'finished',
-        }[followUp.type] || 'finished'
-        openingText = `hey${nameStr} — you ${typeVerb} ${followUp.title}. what did you make of it?`
-      } else {
-        openingText = await buildOpeningMessage(all)
-      }
+      openingText = await buildOpeningMessage(all)
     }
 
     all.push({ type: 'vera', text: openingText, id: 'opening_' + storageLib.getTodayString() })
@@ -242,6 +224,9 @@ async function initialiseConversation(setMessages, setActiveNudge) {
 
   // Retroactively close yesterday's thread if it has no closing yet
   await checkAndGenerateClosing(setMessages)
+
+  // Pre-generate period insights in the background (no await — fire and forget)
+  checkAndPreGenerateInsights()
 }
 
 // ─── Daily closing (retroactive, generated next morning) ──────────────────────
@@ -294,9 +279,10 @@ async function checkAndGenerateClosing(setMessages) {
 // ─── Components ───────────────────────────────────────────────────────────────
 
 function MainApp({ messages, setMessages, activeNudge, setActiveNudge }) {
-  const [activeTab,       setActiveTab]       = React.useState('share')
-  const [trackedPatterns, setTrackedPatterns] = React.useState(() => storageLib.getTrackedPatterns())
-  const [growListVersion, setGrowListVersion] = React.useState(0)
+  const [activeTab,        setActiveTab]        = React.useState('share')
+  const [trackedPatterns,  setTrackedPatterns]  = React.useState(() => storageLib.getTrackedPatterns())
+  const [growListVersion,  setGrowListVersion]  = React.useState(0)
+  const [intentionVersion, setIntentionVersion] = React.useState(0)
 
   function refreshPatterns() {
     setTrackedPatterns(storageLib.getTrackedPatterns())
@@ -306,18 +292,18 @@ function MainApp({ messages, setMessages, activeNudge, setActiveNudge }) {
     setGrowListVersion(v => v + 1)
   }
 
-  function handleNudgeAccepted(nudgeType) {
-    if (!activeNudge) return
-    const keys = nudgeToStorageKey(activeNudge)
-    if (keys) storageLib.markNudgeAsked(keys.storageType, keys.key)
-    setActiveNudge(null)
-    setActiveTab('intend')
+  function refreshIntentions() {
+    setIntentionVersion(v => v + 1)
   }
 
+  // Called when a review or intention is saved via conversation
+  function handleNudgeAccepted() {
+    setActiveNudge(null)
+    setIntentionVersion(v => v + 1)
+  }
+
+  // Called when user explicitly declines (NUDGE_DECLINED tag fired)
   function handleNudgeDeclined() {
-    if (!activeNudge) return
-    const keys = nudgeToStorageKey(activeNudge)
-    if (keys) storageLib.markNudgeAsked(keys.storageType, keys.key)
     setActiveNudge(null)
   }
 
@@ -332,6 +318,7 @@ function MainApp({ messages, setMessages, activeNudge, setActiveNudge }) {
           setActiveTab=${setActiveTab}
           onPatternAdded=${refreshPatterns}
           onListUpdated=${refreshGrowList}
+          onIntentionUpdated=${refreshIntentions}
           activeNudge=${activeNudge}
           onNudgeAccepted=${handleNudgeAccepted}
           onNudgeDeclined=${handleNudgeDeclined}
@@ -359,7 +346,7 @@ function MainApp({ messages, setMessages, activeNudge, setActiveNudge }) {
       <div style=${{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <div class="atmos"></div>
         <${Header} />
-        <${IntendTab} />
+        <${IntendTab} version=${intentionVersion} />
         <${BottomNav} activeTab=${activeTab} setActiveTab=${setActiveTab} />
       </div>
     `
