@@ -15,15 +15,15 @@
       --surface:    #182430;
       --surface-2:  #1E2E3C;
       --amber:      #E8A030;
-      --teal:       #4AAEAE;
-      --text:       #D8C8A8;
-      --text-muted: #8AB4C4;
-      --text-dim:   #9ABCCC;
-      --border:     #2A4050;
+      --teal:       #5ECECE;
+      --text:       #EDE0C4;
+      --text-muted: #A8CCE0;
+      --text-dim:   #B8D4E0;
+      --border:     #3A5468;
       --nav-bg:     #0C1420;
       --div-line:   #4A6880;
-      --div-label:  #B8D4E0;
-      --inactive:   #7A9AAA;
+      --div-label:  #C8E0EE;
+      --inactive:   #8AAABB;
     }
 
     *, *::before, *::after {
@@ -117,14 +117,14 @@
       position: absolute;
       bottom: 60px; right: -20px;
       width: 160px; height: 160px;
-      background: radial-gradient(circle, rgba(74,174,174,0.06) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(94,206,206,0.06) 0%, transparent 70%);
     }
     .atmos-2::before {
       content: '';
       position: absolute;
       top: 30px; right: 5%;
       width: 180px; height: 180px;
-      background: radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(94,206,206,0.07) 0%, transparent 65%);
     }
     .atmos-3::before {
       content: '';
@@ -138,7 +138,7 @@
       position: absolute;
       bottom: 80px; left: 5%;
       width: 200px; height: 200px;
-      background: radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(94,206,206,0.07) 0%, transparent 65%);
     }
     .atmos-5::before {
       content: '';
@@ -475,7 +475,7 @@
       right: -20px;
       width: 180px;
       height: 180px;
-      background: radial-gradient(circle, rgba(74,174,174,0.05) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(94,206,206,0.05) 0%, transparent 70%);
     }
     .chat {
       flex: 1;
@@ -695,7 +695,7 @@
       position: absolute;
       top: -40px; left: 30%;
       width: 260px; height: 260px;
-      background: radial-gradient(ellipse, rgba(74,174,174,0.08) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(94,206,206,0.08) 0%, transparent 65%);
     }
     .remember-atmos::after {
       content: '';
@@ -900,7 +900,6 @@
     .ex-vera {
       font-family: 'Cormorant Garamond', serif;
       font-size: 17px;
-      font-style: italic;
       color: var(--amber);
       font-weight: 300;
       line-height: 1.5;
@@ -956,7 +955,6 @@
       font-family: 'Cormorant Garamond', serif;
       font-size: 17px;
       font-weight: 300;
-      font-style: italic;
       color: var(--text-muted);
       line-height: 1.55;
     }
@@ -980,7 +978,7 @@
       position: absolute;
       bottom: 100px; left: -20px;
       width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(74,174,174,0.05) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(94,206,206,0.05) 0%, transparent 70%);
     }
 
     .intend-scroll {
@@ -1038,6 +1036,12 @@
       cursor: pointer;
       opacity: 0.6;
       user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 10px;
     }
     .month-label {
       font-family: 'Cinzel', serif;
@@ -1138,7 +1142,6 @@
     }
     .v4-month-label-big {
       font-family: 'Cormorant Garamond', serif;
-      font-style: italic;
       font-weight: 300;
       font-size: 22px;
       color: var(--text);
@@ -1224,7 +1227,6 @@
 
     .week-date-range {
       font-family: 'Cormorant Garamond', serif;
-      font-style: italic;
       font-weight: 400;
       font-size: 16px;
       letter-spacing: 0.005em;
@@ -1251,7 +1253,6 @@
     .week-snippet {
       font-family: 'Cormorant Garamond', serif;
       font-size: 16px;
-      font-style: italic;
       color: var(--text-dim);
       font-weight: 300;
       overflow: hidden;
@@ -1294,7 +1295,6 @@
       font-family: 'Cormorant Garamond', serif;
       font-size: 19px;
       font-weight: 300;
-      font-style: italic;
       color: var(--text);
       line-height: 1.5;
       flex: 1;
@@ -1499,7 +1499,6 @@
     .review-question {
       font-family: 'Cormorant Garamond', serif;
       font-size: 17px;
-      font-style: italic;
       font-weight: 300;
       color: var(--text);
       line-height: 1.5;
@@ -1595,7 +1594,6 @@
     .insight-text {
       font-family: 'Cormorant Garamond', serif;
       font-size: 16px;
-      font-style: italic;
       font-weight: 300;
       color: var(--text-muted);
       line-height: 1.6;
@@ -1603,14 +1601,253 @@
     .mood-word {
       font-family: 'Cormorant Garamond', serif;
       font-size: 16px;
-      font-style: italic;
       color: var(--text-dim);
       opacity: 0.7;
       margin-bottom: 14px;
     }
 
+    /* ─── INTEND REDESIGN — new header + card styles ─── */
+
+    .sub-nav-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 0 10px;
+      gap: 0;
+    }
+
+    .month-nav-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 20px 10px;
+      gap: 10px;
+      border-bottom: 0.5px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .week-card-primary {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 0 16px 10px;
+      position: relative;
+    }
+
+    .month-card-secondary {
+      background: transparent;
+      border: 0.5px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin: 0 16px 14px;
+      position: relative;
+    }
+
+    .card-period {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 5px;
+      opacity: 0.85;
+    }
+
+    .card-daterange {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.45;
+      margin-bottom: 12px;
+    }
+
+    .card-sentence {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 19px;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+
+    .month-card-secondary .card-sentence {
+      font-size: 17px;
+      margin-bottom: 10px;
+      opacity: 0.9;
+    }
+
+    .card-empty {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 300;
+      color: var(--text-dim);
+      opacity: 0.4;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    .edit-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.4;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 10px 12px;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 16px 4px;
+    }
+    .sd-line { flex: 1; height: 0.5px; background: var(--border); }
+    .sd-diamond {
+      width: 5px; height: 5px;
+      border: 0.5px solid var(--text-dim);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+      opacity: 0.3;
+    }
+    .sd-label {
+      font-family: 'Cinzel', serif;
+      font-size: 8px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.38;
+      white-space: nowrap;
+    }
+
+    .hist-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 0.5px solid var(--border);
+      cursor: pointer;
+    }
+    .hist-row:last-child { border-bottom: none; }
+
+    .hist-left { display: flex; flex-direction: column; gap: 3px; }
+    .hist-date {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      color: var(--text-dim);
+      opacity: 0.65;
+    }
+    .hist-snippet {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      color: var(--text-dim);
+      opacity: 0.38;
+    }
+    .hist-right { display: flex; align-items: center; gap: 8px; }
+    .hist-arrow { font-size: 11px; color: var(--text-dim); opacity: 0.28; transition: transform 0.2s ease; }
+
+    .type-pill {
+      font-family: 'Cinzel', serif;
+      font-size: 7px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .type-pill-week { border: 0.5px solid var(--border); color: var(--text-dim); opacity: 0.55; }
+    .type-pill-month {
+      border: 0.5px solid rgba(232,160,48,0.3);
+      color: var(--amber);
+      opacity: 0.7;
+      background: rgba(232,160,48,0.06);
+    }
+
+    .review-card-open {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 0 16px 14px;
+      position: relative;
+    }
+    .review-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .bracket-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 10px 16px;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      width: 100%;
+    }
+    .bracket-btn::before {
+      content: '';
+      position: absolute;
+      top: 2px; left: 4px;
+      width: 10px; height: 10px;
+      border-top: 1px solid var(--text-dim);
+      border-left: 1px solid var(--text-dim);
+      opacity: 0.38;
+    }
+    .bracket-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 2px; right: 4px;
+      width: 10px; height: 10px;
+      border-bottom: 1px solid var(--text-dim);
+      border-right: 1px solid var(--text-dim);
+      opacity: 0.38;
+    }
+    .bc-tr {
+      position: absolute;
+      top: 2px; right: 4px;
+      width: 10px; height: 10px;
+      border-top: 1px solid var(--text-dim);
+      border-right: 1px solid var(--text-dim);
+      opacity: 0.38;
+    }
+    .bc-bl {
+      position: absolute;
+      bottom: 2px; left: 4px;
+      width: 10px; height: 10px;
+      border-bottom: 1px solid var(--text-dim);
+      border-left: 1px solid var(--text-dim);
+      opacity: 0.38;
+    }
+    .bracket-btn-label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.65;
+    }
+
     /* ─── GROW TAB ─── */
-    .grow-atmos::before { content:''; position:absolute; top:-40px; left:25%; width:260px; height:260px; background:radial-gradient(ellipse, rgba(74,174,174,0.07) 0%, transparent 65%); }
+    .grow-atmos::before { content:''; position:absolute; top:-40px; left:25%; width:260px; height:260px; background:radial-gradient(ellipse, rgba(94,206,206,0.07) 0%, transparent 65%); }
     .grow-atmos::after  { content:''; position:absolute; bottom:160px; right:-30px; width:200px; height:200px; background:radial-gradient(circle, rgba(232,160,48,0.04) 0%, transparent 70%); }
 
     .grow-scroll {
@@ -1639,9 +1876,9 @@
       border-radius:20px; background:rgba(232,160,48,0.1); white-space:nowrap; flex-shrink:0;
       align-self:flex-start;
     }
-    .g2-suggest-title { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; font-style:italic; color:var(--text); line-height:1.4; flex:1; }
+    .g2-suggest-title { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; color:var(--text); line-height:1.4; flex:1; }
     .g2-suggest-author { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.18em; color:var(--text-dim); text-transform:uppercase; margin-bottom:14px; }
-    .g2-suggest-why { font-family:'Cormorant Garamond',serif; font-size:15px; font-weight:300; font-style:italic; color:var(--text-muted); line-height:1.6; margin-bottom:18px; }
+    .g2-suggest-why { font-family:'Cormorant Garamond',serif; font-size:15px; font-weight:300; color:var(--text-muted); line-height:1.6; margin-bottom:18px; }
     .g2-suggest-actions { display:flex; gap:10px; margin-top:14px; padding:0 4px; }
     .g2-act-btn {
       flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
@@ -1667,7 +1904,7 @@
     .g2-path-cta-diamond::after { content:'+'; transform:rotate(-45deg); font-size:13px; color:var(--amber); font-weight:300; line-height:1; }
     .g2-path-cta-text { display:flex; flex-direction:column; gap:2px; }
     .g2-path-cta-title { font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--amber); }
-    .g2-path-cta-sub { font-family:'Cormorant Garamond',serif; font-size:13px; font-style:italic; color:var(--text-muted); }
+    .g2-path-cta-sub { font-family:'Cormorant Garamond',serif; font-size:13px; color:var(--text-muted); }
 
     .g2-path-section-label { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-dim); margin:14px 0 4px; opacity:0.7; }
     .g2-path-section-label:first-of-type { margin-top:6px; }
@@ -1705,7 +1942,7 @@
     /* ─── GROW — obs classes (used by GrowNoticesCard) ─── */
     .obs-diamond-row { display:flex; align-items:flex-start; gap:12px; }
     .obs-diamond { width:5px; height:5px; border:0.5px solid var(--teal); transform:rotate(45deg); flex-shrink:0; margin-top:8px; }
-    .obs-text { font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:300; font-style:italic; color:var(--text); line-height:1.55; }
+    .obs-text { font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:300; color:var(--text); line-height:1.55; }
     .obs-date { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-dim); padding-left:17px; }
 
     /* ─── VERA NOTICES CARD ─── */
@@ -1713,7 +1950,7 @@
       border: 0.5px solid var(--border);
       border-radius: 14px;
       padding: 18px;
-      background: linear-gradient(180deg, rgba(74,174,174,0.06) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(94,206,206,0.06) 0%, transparent 100%);
       margin-bottom: 4px;
     }
     .g2-notices-label {
@@ -1729,7 +1966,6 @@
       font-family: 'Cormorant Garamond', serif;
       font-size: 17px;
       font-weight: 300;
-      font-style: italic;
       color: var(--text);
       line-height: 1.6;
       letter-spacing: 0.01em;

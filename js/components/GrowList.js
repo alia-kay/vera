@@ -64,7 +64,6 @@ export default function GrowList({
           padding: '24px 0 8px',
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: '16px',
-          fontStyle: 'italic',
           fontWeight: 300,
           color: 'var(--text-dim)',
           lineHeight: 1.6,

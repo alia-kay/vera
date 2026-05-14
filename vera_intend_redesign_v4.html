@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vera — Intend v4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+  :root {
+    --base:      #101820;
+    --surface:   #182430;
+    --surface-2: #1E2E3C;
+    --amber:     #E8A030;
+    --teal:      #4AAEAE;
+    --text:      #D8C8A8;
+    --text-muted:#8AB4C4;
+    --text-dim:  #9ABCCC;
+    --border:    #2A4050;
+    --nav-bg:    #0C1420;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #06090C;
+    font-family: 'Jost', sans-serif;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 32px 16px;
+    flex-wrap: wrap;
+    min-height: 100vh;
+    align-items: flex-start;
+  }
+
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .screen-label {
+    font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--text-dim); opacity:0.5;
+  }
+
+  .phone {
+    width: 320px; height: 680px;
+    background: var(--base);
+    border-radius: 24px;
+    border: 0.5px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .atmos { position:absolute; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  .atmos::before { content:''; position:absolute; top:-40px; right:20%; width:200px; height:200px; background:radial-gradient(ellipse, rgba(232,160,48,0.06) 0%, transparent 65%); }
+  .atmos::after  { content:''; position:absolute; bottom:100px; left:-20px; width:180px; height:180px; background:radial-gradient(circle, rgba(74,174,174,0.05) 0%, transparent 70%); }
+
+  .header {
+    position:absolute; top:0; left:0; right:0; height:56px;
+    padding:0 20px;
+    background:var(--base);
+    display:flex; align-items:center; justify-content:space-between;
+    z-index:10;
+    -webkit-mask-image:linear-gradient(to bottom, black 80%, transparent 100%);
+  }
+  .app-name { font-family:'Cinzel',serif; font-size:14px; font-weight:300; color:var(--text); letter-spacing:0.38em; text-transform:uppercase; }
+  .header-date { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-dim); }
+
+  .scroll {
+    flex:1; overflow-y:auto;
+    padding: 64px 16px 90px;
+    position:relative; z-index:1;
+    -ms-overflow-style:none; scrollbar-width:none;
+  }
+  .scroll::-webkit-scrollbar { display:none; }
+
+  /* ─── HEADER CONTROLS ─── */
+
+  /* Row 1: sub-nav — centred, full width, generous */
+  .sub-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0 10px;
+    gap: 0;
+  }
+  .sub-nav-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 4px 0;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+  }
+  .sub-nav-btn.active { color: var(--text); border-bottom-color: var(--amber); }
+  .sub-nav-sep { font-family:'Cinzel',serif; font-size:11px; color:var(--border); padding:0 16px; opacity:0.4; }
+
+  /* Row 2: month nav — right-aligned, small, secondary */
+  .month-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 0 10px;
+    gap: 10px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .month-arrow { font-size:16px; color:var(--text-dim); cursor:pointer; opacity:0.5; user-select:none; }
+  .month-label {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  /* ─── CURRENT WEEK CARD — large ─── */
+  .week-card-primary {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .card-period {
+    font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--amber); margin-bottom:5px; opacity:0.85;
+  }
+  .card-type-badge {
+    display: inline-block;
+    font-family:'Cinzel',serif; font-size:7px; letter-spacing:0.14em;
+    text-transform:uppercase; padding:2px 7px; border-radius:10px;
+    border:0.5px solid var(--border); color:var(--text-dim); opacity:0.6;
+    margin-bottom:10px;
+  }
+  .card-daterange {
+    font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--text-dim); opacity:0.45; margin-bottom:12px;
+  }
+  .card-sentence {
+    font-family:'Cormorant Garamond',serif; font-size:19px; font-weight:300; font-style:italic;
+    color:var(--text); line-height:1.55; margin-bottom:14px;
+  }
+
+  .checklist { display:flex; flex-direction:column; margin-bottom:12px; }
+  .check-item { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:0.5px solid var(--border); }
+  .check-item:last-child { border-bottom:none; }
+  .check-box { width:10px; height:10px; border:1px solid var(--text-dim); transform:rotate(45deg); flex-shrink:0; }
+  .check-box.checked { background:var(--amber); border-color:var(--amber); }
+  .check-text { font-size:16px; font-weight:300; color:var(--text); line-height:1.4; }
+  .check-text.done { color:var(--text-dim); text-decoration:line-through; text-decoration-color:rgba(154,188,204,0.35); }
+
+  .focus-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .focus-pill {
+    font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:5px 11px; border-radius:20px;
+    border:0.5px solid rgba(232,160,48,0.35); background:rgba(232,160,48,0.08); color:var(--amber);
+  }
+
+  .edit-btn {
+    position:absolute; top:18px; right:18px;
+    font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-dim); opacity:0.4; cursor:pointer;
+  }
+
+  /* ─── MONTH CARD — smaller ─── */
+  .month-card-secondary {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .month-card-secondary .card-sentence { font-size:17px; margin-bottom:10px; opacity:0.9; }
+
+  /* ─── SECTION DIVIDER ─── */
+  .section-divider {
+    display:flex; align-items:center; gap:10px; margin:16px 0 12px;
+  }
+  .sd-line { flex:1; height:0.5px; background:var(--border); }
+  .sd-diamond { width:5px; height:5px; border:0.5px solid var(--text-dim); transform:rotate(45deg); flex-shrink:0; opacity:0.3; }
+  .sd-label { font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim); opacity:0.38; white-space:nowrap; }
+
+  /* ─── HISTORY ROWS — mixed weekly + monthly ─── */
+  .hist-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 0; border-bottom:0.5px solid var(--border); cursor:pointer;
+  }
+  .hist-row:last-child { border-bottom:none; }
+
+  .hist-left { display:flex; flex-direction:column; gap:3px; }
+  .hist-date {
+    font-family:'Cormorant Garamond',serif; font-size:15px; font-style:italic;
+    color:var(--text-dim); opacity:0.65;
+  }
+  .hist-snippet {
+    font-family:'Cormorant Garamond',serif; font-size:13px; font-style:italic;
+    color:var(--text-dim); opacity:0.38;
+  }
+  .hist-right { display:flex; align-items:center; gap:8px; }
+
+  /* Type pill — Week vs Month identifier */
+  .type-pill {
+    font-family:'Cinzel',serif; font-size:7px; letter-spacing:0.12em; text-transform:uppercase;
+    padding:2px 6px; border-radius:8px; white-space:nowrap;
+  }
+  .type-pill-week { border:0.5px solid var(--border); color:var(--text-dim); opacity:0.55; }
+  .type-pill-month { border:0.5px solid rgba(232,160,48,0.3); color:var(--amber); opacity:0.7; background:rgba(232,160,48,0.06); }
+
+  .hist-arrow { font-size:11px; color:var(--text-dim); opacity:0.28; }
+
+  /* ─── REVIEW CARDS ─── */
+  .review-status {
+    font-family:'Cinzel',serif; font-size:7px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:2px 8px; border-radius:10px; flex-shrink:0;
+  }
+  .status-done    { background:rgba(74,160,110,0.15); color:#5AB88A; border:0.5px solid rgba(74,160,110,0.3); }
+  .status-pending { background:rgba(232,160,48,0.1); color:var(--amber); border:0.5px solid rgba(232,160,48,0.35); }
+  .status-not-yet { background:transparent; color:var(--text-dim); border:0.5px solid var(--border); opacity:0.45; }
+
+  .review-card-open {
+    background:var(--surface); border:0.5px solid var(--border);
+    border-radius:16px; padding:20px; margin-bottom:10px; position:relative;
+  }
+  .review-card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+
+  .insight-list { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+  .insight-item { display:flex; align-items:flex-start; gap:8px; }
+  .insight-star { font-size:9px; color:var(--amber); opacity:0.6; flex-shrink:0; margin-top:4px; }
+  .insight-text {
+    font-family:'Cormorant Garamond',serif; font-size:16px; font-style:italic;
+    font-weight:300; color:var(--text-muted); line-height:1.6;
+  }
+  .mood-word {
+    font-family:'Cormorant Garamond',serif; font-size:15px; font-style:italic;
+    color:var(--text-dim); opacity:0.65; margin-bottom:12px;
+  }
+
+  .simple-btn {
+    width:100%; padding:10px 16px;
+    background:transparent; border:0.5px solid var(--border); border-radius:8px;
+    font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--text-dim); cursor:pointer; text-align:center;
+  }
+
+  /* bracket btn */
+  .bracket-btn {
+    display:inline-flex; align-items:center; justify-content:center;
+    position:relative; padding:10px 16px; cursor:pointer;
+    background:transparent; border:none; width:100%;
+  }
+  .bracket-btn::before { content:''; position:absolute; top:2px; left:4px; width:10px; height:10px; border-top:1px solid var(--text-dim); border-left:1px solid var(--text-dim); opacity:0.38; }
+  .bracket-btn::after  { content:''; position:absolute; bottom:2px; right:4px; width:10px; height:10px; border-bottom:1px solid var(--text-dim); border-right:1px solid var(--text-dim); opacity:0.38; }
+  .bc-tr { position:absolute; top:2px; right:4px; width:10px; height:10px; border-top:1px solid var(--text-dim); border-right:1px solid var(--text-dim); opacity:0.38; }
+  .bc-bl { position:absolute; bottom:2px; left:4px; width:10px; height:10px; border-bottom:1px solid var(--text-dim); border-left:1px solid var(--text-dim); opacity:0.38; }
+  .bracket-btn-label { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-dim); opacity:0.65; }
+
+  /* card-empty */
+  .card-empty { font-family:'Cormorant Garamond',serif; font-size:16px; font-style:italic; font-weight:300; color:var(--text-dim); opacity:0.4; line-height:1.6; margin-bottom:14px; }
+
+  /* nav */
+  .bottom-nav { position:absolute; bottom:0; left:0; right:0; background:var(--nav-bg); border-top:0.5px solid var(--border); padding:10px 0 22px; display:flex; justify-content:space-around; z-index:10; }
+  .nav-item { display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:2px 10px; }
+  .nav-label { font-size:9px; letter-spacing:0.14em; text-transform:uppercase; font-family:'Cinzel',serif; }
+  .nav-item.active .nav-label { color:var(--amber); }
+  .nav-item.inactive .nav-label { color:var(--text-dim); opacity:0.5; }
+</style>
+</head>
+<body>
+
+<!-- reusable nav -->
+<style>
+  .nav-share  { opacity:0.5; }
+  .nav-remember { opacity:0.5; }
+  .nav-grow   { opacity:0.5; }
+</style>
+
+<!-- ─── SCREEN 1: Intentions — current month with both cards ─── -->
+<div class="col">
+  <div class="screen-label">Intentions · current + history</div>
+  <div class="phone">
+    <div class="atmos"></div>
+    <div class="header"><div class="app-name">vera</div><div class="header-date">Tue · May 12</div></div>
+    <div class="scroll">
+
+      <!-- Row 1: sub-nav -->
+      <div class="sub-nav-row">
+        <div class="sub-nav-btn active">Intentions</div>
+        <div class="sub-nav-sep">·</div>
+        <div class="sub-nav-btn">Reviews</div>
+      </div>
+
+      <!-- Row 2: month filter -->
+      <div class="month-nav-row">
+        <span class="month-arrow">‹</span>
+        <span class="month-label">May 2026</span>
+        <span class="month-arrow">›</span>
+      </div>
+
+      <!-- This week — large, primary -->
+      <div class="week-card-primary">
+        <div class="edit-btn">Edit</div>
+        <div class="card-period">This week</div>
+        <div class="card-daterange">May 12 – May 18</div>
+        <div class="card-sentence">"Notice when I hold things in instead of saying them"</div>
+        <div class="checklist">
+          <div class="check-item"><div class="check-box checked"></div><div class="check-text done">Say something in the next difficult meeting</div></div>
+          <div class="check-item"><div class="check-box"></div><div class="check-text">Write down what I actually feel before bed</div></div>
+          <div class="check-item"><div class="check-box"></div><div class="check-text">Tell my partner what I need</div></div>
+        </div>
+        <div class="focus-pills"><div class="focus-pill">Honesty</div><div class="focus-pill">Courage</div></div>
+      </div>
+
+      <!-- This month — smaller, secondary -->
+      <div class="month-card-secondary">
+        <div class="edit-btn">Edit</div>
+        <div class="card-period">This month · May</div>
+        <div class="card-sentence">"Move toward more honest conversations"</div>
+        <div class="focus-pills"><div class="focus-pill">Presence</div></div>
+      </div>
+
+      <!-- History — mixed weekly + monthly -->
+      <div class="section-divider">
+        <div class="sd-line"></div><div class="sd-diamond"></div>
+        <div class="sd-label">Earlier this month</div>
+        <div class="sd-diamond"></div><div class="sd-line"></div>
+      </div>
+
+      <!-- Week row -->
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">May 5 – May 11</div>
+          <div class="hist-snippet">"Easing into spring"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+      <!-- Week row — no intention -->
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 28 – May 4</div>
+          <div class="hist-snippet" style="opacity:0.25;">No intention set</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><path d="M16 52 L16 30 Q16 16 32 16 Q48 16 48 30 L48 52" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square"/><line x1="10" y1="52" x2="54" y2="52" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Share</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><line x1="14" y1="9" x2="50" y2="9" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="14" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="50" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="14" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="50" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Remember</span></div>
+      <div class="nav-item active"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="2.5" fill="none" stroke-linecap="square"/><rect x="18" y="18" width="28" height="28" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="1.8" fill="none" stroke-linecap="square" opacity="0.6"/><circle cx="32" cy="32" r="3" fill="#E8A030"/></svg><span class="nav-label">Intend</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><polyline points="8,52 8,44 18,44 18,36 28,36 28,28 38,28 38,20 48,20 48,12 56,12" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/></svg><span class="nav-label">Grow</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SCREEN 2: Intentions — previous month with mixed history ─── -->
+<div class="col">
+  <div class="screen-label">Intentions · prev month history</div>
+  <div class="phone">
+    <div class="atmos"></div>
+    <div class="header"><div class="app-name">vera</div><div class="header-date">Tue · May 12</div></div>
+    <div class="scroll">
+
+      <div class="sub-nav-row">
+        <div class="sub-nav-btn active">Intentions</div>
+        <div class="sub-nav-sep">·</div>
+        <div class="sub-nav-btn">Reviews</div>
+      </div>
+      <div class="month-nav-row">
+        <span class="month-arrow">‹</span>
+        <span class="month-label">April 2026</span>
+        <span class="month-arrow">›</span>
+      </div>
+
+      <!-- April monthly intention — shown as primary card since it's the month view -->
+      <div class="month-card-secondary" style="margin-bottom:10px;">
+        <div class="card-period" style="margin-bottom:5px;">April · Month</div>
+        <div class="card-sentence" style="font-size:17px; margin-bottom:10px;">"Move toward more honest conversations"</div>
+        <div class="focus-pills"><div class="focus-pill">Presence</div><div class="focus-pill">Courage</div></div>
+      </div>
+
+      <!-- All April weeks — mixed in one list -->
+      <div class="section-divider" style="margin-top:4px;">
+        <div class="sd-line"></div><div class="sd-diamond"></div>
+        <div class="sd-label">Weeks in April</div>
+        <div class="sd-diamond"></div><div class="sd-line"></div>
+      </div>
+
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 28 – May 4</div>
+          <div class="hist-snippet">"Understand my anger"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 21 – Apr 27</div>
+          <div class="hist-snippet">"Easing into spring"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 14 – Apr 20</div>
+          <div class="hist-snippet" style="opacity:0.25;">No intention set</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 7 – Apr 13</div>
+          <div class="hist-snippet">"Notice what drains me"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><path d="M16 52 L16 30 Q16 16 32 16 Q48 16 48 30 L48 52" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square"/><line x1="10" y1="52" x2="54" y2="52" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Share</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><line x1="14" y1="9" x2="50" y2="9" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="14" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="50" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="14" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="50" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Remember</span></div>
+      <div class="nav-item active"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="2.5" fill="none" stroke-linecap="square"/><rect x="18" y="18" width="28" height="28" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="1.8" fill="none" stroke-linecap="square" opacity="0.6"/><circle cx="32" cy="32" r="3" fill="#E8A030"/></svg><span class="nav-label">Intend</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><polyline points="8,52 8,44 18,44 18,36 28,36 28,28 38,28 38,20 48,20 48,12 56,12" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/></svg><span class="nav-label">Grow</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SCREEN 3: Reviews — current month, open card + mixed history ─── -->
+<div class="col">
+  <div class="screen-label">Reviews · current + history</div>
+  <div class="phone">
+    <div class="atmos"></div>
+    <div class="header"><div class="app-name">vera</div><div class="header-date">Tue · May 12</div></div>
+    <div class="scroll">
+
+      <div class="sub-nav-row">
+        <div class="sub-nav-btn">Intentions</div>
+        <div class="sub-nav-sep">·</div>
+        <div class="sub-nav-btn active">Reviews</div>
+      </div>
+      <div class="month-nav-row">
+        <span class="month-arrow">‹</span>
+        <span class="month-label">May 2026</span>
+        <span class="month-arrow">›</span>
+      </div>
+
+      <!-- Most recent — this week — open -->
+      <div class="review-card-open">
+        <div class="review-card-header">
+          <div>
+            <div class="card-period" style="margin-bottom:3px;">Last week</div>
+            <div class="card-daterange" style="margin-bottom:0;">May 5 – May 11 · <span style="font-family:'Cinzel',serif;font-size:7px;letter-spacing:0.1em;">Week</span></div>
+          </div>
+          <div class="review-status status-done">Done</div>
+        </div>
+        <div class="insight-list">
+          <div class="insight-item"><span class="insight-star">✦</span><div class="insight-text">Anger came up four times — always in work situations. You held it in each time.</div></div>
+          <div class="insight-item"><span class="insight-star">✦</span><div class="insight-text">Wednesday felt lighter — worth noticing what was different.</div></div>
+          <div class="insight-item"><span class="insight-star">✦</span><div class="insight-text">Three hard days followed poor sleep. The pattern keeps showing up.</div></div>
+        </div>
+        <div class="mood-word">"Exhausted but aware"</div>
+        <div class="simple-btn">Edit review</div>
+      </div>
+
+      <!-- Earlier this month — mixed week + month rows -->
+      <div class="section-divider">
+        <div class="sd-line"></div><div class="sd-diamond"></div>
+        <div class="sd-label">Earlier this month</div>
+        <div class="sd-diamond"></div><div class="sd-line"></div>
+      </div>
+
+      <!-- Week row -->
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">Apr 28 – May 4</div>
+          <div class="hist-snippet">"Quietly holding on"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="review-status status-done" style="font-size:7px;padding:2px 6px;">Done</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+      <!-- Month row — April monthly review -->
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">April 2026</div>
+          <div class="hist-snippet">"Finding my footing"</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-month">Month</div>
+          <div class="review-status status-pending" style="font-size:7px;padding:2px 6px;">Pending</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><path d="M16 52 L16 30 Q16 16 32 16 Q48 16 48 30 L48 52" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square"/><line x1="10" y1="52" x2="54" y2="52" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Share</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><line x1="14" y1="9" x2="50" y2="9" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="14" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="50" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="14" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="50" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Remember</span></div>
+      <div class="nav-item active"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="2.5" fill="none" stroke-linecap="square"/><rect x="18" y="18" width="28" height="28" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="1.8" fill="none" stroke-linecap="square" opacity="0.6"/><circle cx="32" cy="32" r="3" fill="#E8A030"/></svg><span class="nav-label">Intend</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><polyline points="8,52 8,44 18,44 18,36 28,36 28,28 38,28 38,20 48,20 48,12 56,12" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/></svg><span class="nav-label">Grow</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── SCREEN 4: Intentions — no intention set for week or month ─── -->
+<div class="col">
+  <div class="screen-label">Intentions · Nothing set</div>
+  <div class="phone">
+    <div class="atmos"></div>
+    <div class="header"><div class="app-name">vera</div><div class="header-date">Mon · May 12</div></div>
+    <div class="scroll">
+
+      <div class="sub-nav-row">
+        <div class="sub-nav-btn active">Intentions</div>
+        <div class="sub-nav-sep">·</div>
+        <div class="sub-nav-btn">Reviews</div>
+      </div>
+      <div class="month-nav-row">
+        <span class="month-arrow">‹</span>
+        <span class="month-label">May 2026</span>
+        <span class="month-arrow">›</span>
+      </div>
+
+      <!-- This week — empty -->
+      <div class="week-card-primary" style="margin-bottom:10px;">
+        <div class="card-period">This week</div>
+        <div class="card-daterange">May 12 – May 18</div>
+        <div class="card-empty">No intention set for this week.</div>
+        <div class="bracket-btn">
+          <span class="bc-tr"></span><span class="bc-bl"></span>
+          <div class="bracket-btn-label">Set intention for this week</div>
+        </div>
+      </div>
+
+      <!-- This month — empty -->
+      <div class="month-card-secondary" style="margin-bottom:14px;">
+        <div class="card-period">This month · May</div>
+        <div class="card-empty" style="font-size:15px; margin-bottom:12px;">No intention set for May yet.</div>
+        <div class="bracket-btn">
+          <span class="bc-tr"></span><span class="bc-bl"></span>
+          <div class="bracket-btn-label">Set intention for this month</div>
+        </div>
+      </div>
+
+      <!-- Previous weeks — still show history -->
+      <div class="section-divider">
+        <div class="sd-line"></div><div class="sd-diamond"></div>
+        <div class="sd-label">Earlier this month</div>
+        <div class="sd-diamond"></div><div class="sd-line"></div>
+      </div>
+
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-date">May 5 – May 11</div>
+          <div class="hist-snippet" style="opacity:0.25;">No intention set</div>
+        </div>
+        <div class="hist-right">
+          <div class="type-pill type-pill-week">Week</div>
+          <div class="hist-arrow">›</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><path d="M16 52 L16 30 Q16 16 32 16 Q48 16 48 30 L48 52" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square"/><line x1="10" y1="52" x2="54" y2="52" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Share</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><line x1="14" y1="9" x2="50" y2="9" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="14" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="50" y1="9" x2="32" y2="32" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="14" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/><line x1="32" y1="32" x2="50" y2="55" stroke="#9ABCCC" stroke-width="2.5" stroke-linecap="square"/></svg><span class="nav-label">Remember</span></div>
+      <div class="nav-item active"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="2.5" fill="none" stroke-linecap="square"/><rect x="18" y="18" width="28" height="28" transform="rotate(45 32 32)" stroke="#E8A030" stroke-width="1.8" fill="none" stroke-linecap="square" opacity="0.6"/><circle cx="32" cy="32" r="3" fill="#E8A030"/></svg><span class="nav-label">Intend</span></div>
+      <div class="nav-item inactive"><svg width="20" height="20" viewBox="0 0 64 64" fill="none" opacity="0.5"><polyline points="8,52 8,44 18,44 18,36 28,36 28,28 38,28 38,20 48,20 48,12 56,12" stroke="#9ABCCC" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/></svg><span class="nav-label">Grow</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

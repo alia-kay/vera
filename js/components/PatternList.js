@@ -50,7 +50,6 @@ export default function PatternList({ patterns }) {
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: '16px',
-            fontStyle: 'italic',
             color: 'var(--text-dim)',
             lineHeight: 1.6,
           }}>

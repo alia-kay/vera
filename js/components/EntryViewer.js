@@ -25,7 +25,6 @@ const recapStyle = {
   fontFamily: "'Cormorant Garamond', serif",
   fontSize: '19px',
   fontWeight: 300,
-  fontStyle: 'italic',
   color: 'var(--text)',
   lineHeight: 1.7,
 }
@@ -103,7 +102,6 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: '16px',
-            fontStyle: 'italic',
             color: 'var(--text-dim)',
             lineHeight: 1.6,
             opacity: 0.6,
@@ -118,7 +116,6 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
               fontFamily: "'Cormorant Garamond', serif",
               fontSize: '16px',
               fontWeight: 300,
-              fontStyle: 'italic',
               color: 'var(--text-muted)',
               lineHeight: 1.65,
               marginTop: '12px',
@@ -132,7 +129,6 @@ export default function EntryViewer({ date, entries, onClose, recapCache, onReca
           <div style=${{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: '16px',
-            fontStyle: 'italic',
             color: 'var(--text-dim)',
             lineHeight: 1.6,
             opacity: 0.5,

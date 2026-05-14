@@ -28,6 +28,11 @@ const MONTHLY_QUESTIONS = [
   'What do you want to move toward next month?',
 ]
 
+const MONTH_NAMES_FULL = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+
 // ─── Checklist item ───────────────────────────────────────────────────────────
 
 function CheckItem({ item, onToggle, editMode, onDelete }) {
@@ -51,61 +56,7 @@ function CheckItem({ item, onToggle, editMode, onDelete }) {
   `
 }
 
-// ─── Intentions view ──────────────────────────────────────────────────────────
-
-function IntentionView({ intention, periodKey, periodType, endDate, onStartEdit, onReviewThisWeek, localVersion, setLocalVersion }) {
-  function handleToggleItem(itemId, checked) {
-    if (periodType === 'week') {
-      updateWeeklyIntentionItem(periodKey, itemId, checked)
-    } else {
-      updateMonthlyIntentionItem(periodKey, itemId, checked)
-    }
-    setLocalVersion(v => v + 1)
-  }
-
-  const items      = intention?.items      || []
-  const focusWords = intention?.focusWords || []
-
-  return html`
-    <div class="week-card-expanded">
-      <div class="intention-header">
-        <div class="intention-sentence">"${intention.sentence}"</div>
-        <${SimpleButton}
-          label="Edit"
-          style=${{ width: 'auto', padding: '5px 10px' }}
-          onClick=${onStartEdit}
-        />
-      </div>
-
-      ${periodType === 'week' && items.length > 0 && html`
-        <div class="checklist">
-          ${items.map(item => html`
-            <${CheckItem}
-              key=${item.id}
-              item=${item}
-              onToggle=${handleToggleItem}
-              editMode=${false}
-            />
-          `)}
-        </div>
-      `}
-
-      ${focusWords.length > 0 && html`
-        <div class="focus-pills">
-          ${focusWords.map(w => html`<div key=${w} class="focus-pill">${w}</div>`)}
-        </div>
-      `}
-
-      ${periodType === 'week' && html`
-        <div class="amber-btn" onClick=${() => onReviewThisWeek(periodKey, endDate)}>
-          Review this week
-        </div>
-      `}
-    </div>
-  `
-}
-
-// ─── Intentions edit ──────────────────────────────────────────────────────────
+// ─── Intention edit form ──────────────────────────────────────────────────────
 
 function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, onCancel, onSaved }) {
   const [editSentence,       setEditSentence]       = React.useState(intention?.sentence || '')
@@ -138,11 +89,8 @@ function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, o
       startDate,
       endDate,
     }
-    if (periodType === 'week') {
-      saveWeeklyIntention(periodKey, data)
-    } else {
-      saveMonthlyIntention(periodKey, data)
-    }
+    if (periodType === 'week') saveWeeklyIntention(periodKey, data)
+    else saveMonthlyIntention(periodKey, data)
     onSaved()
   }
 
@@ -165,7 +113,6 @@ function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, o
         <div style=${{
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: '16px',
-          fontStyle: 'italic',
           color: 'var(--text-dim)',
           opacity: 0.6,
           lineHeight: 1.6,
@@ -218,7 +165,7 @@ function IntentionEdit({ periodKey, periodType, startDate, endDate, intention, o
   `
 }
 
-// ─── Review form (3-question inline) ─────────────────────────────────────────
+// ─── Review form ──────────────────────────────────────────────────────────────
 
 function ReviewForm({ periodKey, periodType, intention, existingAnswers, onComplete, onCancel }) {
   const isMonthly = periodType === 'month'
@@ -229,11 +176,8 @@ function ReviewForm({ periodKey, periodType, intention, existingAnswers, onCompl
   const [generating, setGenerating] = React.useState(false)
 
   function handleNext() {
-    if (currentQ < questions.length - 1) {
-      setCurrentQ(q => q + 1)
-    } else {
-      handleDone()
-    }
+    if (currentQ < questions.length - 1) setCurrentQ(q => q + 1)
+    else handleDone()
   }
 
   function handleBack() {
@@ -245,17 +189,9 @@ function ReviewForm({ periodKey, periodType, intention, existingAnswers, onCompl
     setGenerating(true)
     try {
       const result = await generateWeeklyReview(answers, questions, intention, isMonthly)
-      const reviewData = {
-        questions,
-        answers,
-        insights: result.insights,
-        moodWord: result.moodWord,
-      }
-      if (!isMonthly) {
-        saveWeeklyReview(periodKey, reviewData)
-      } else {
-        saveMonthlyReview(periodKey, reviewData)
-      }
+      const reviewData = { questions, answers, insights: result.insights, moodWord: result.moodWord }
+      if (!isMonthly) saveWeeklyReview(periodKey, reviewData)
+      else saveMonthlyReview(periodKey, reviewData)
       onComplete()
     } catch (err) {
       if (window.VERA_DEBUG) console.log('[Vera] Review generation failed:', err)
@@ -271,7 +207,6 @@ function ReviewForm({ periodKey, periodType, intention, existingAnswers, onCompl
         <div style=${{
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: '16px',
-          fontStyle: 'italic',
           color: 'var(--text-dim)',
           lineHeight: 1.6,
         }}>Vera is reading your week...</div>
@@ -316,19 +251,12 @@ function ReviewForm({ periodKey, periodType, intention, existingAnswers, onCompl
 // ─── WeekCard ─────────────────────────────────────────────────────────────────
 
 export default function WeekCard({
-  periodKey,
-  periodType,
-  startDate,
-  endDate,
-  label,
-  isThisPeriod,
-  isOpen,
+  periodKey, periodType, startDate, endDate, label,
+  variant = 'hist',
   view,
-  onToggle,
-  isReviewing,
-  onReviewThisWeek,
-  onStartReview,
-  onReviewComplete,
+  isThisPeriod,
+  isOpen, onToggle,
+  isReviewing, onStartReview, onReviewComplete,
 }) {
   const [isEditing,    setIsEditing]    = React.useState(false)
   const [isEditReview, setIsEditReview] = React.useState(false)
@@ -343,16 +271,22 @@ export default function WeekCard({
     const todayStr = new Date().toISOString().split('T')[0]
     return todayStr > endDate ? 'pending' : 'not-yet'
   }
-
   const reviewStatus = getReviewStatus()
 
-  function handleToggle() {
-    if (isOpen) {
-      setIsEditing(false)
-      setIsEditReview(false)
+  const [, pMonthNum] = periodKey.split('-').map(Number)
+  const pMonthName    = MONTH_NAMES_FULL[(pMonthNum || 1) - 1] || ''
+
+  function getCardPeriodLabel() {
+    if (isWeek) {
+      if (isThisPeriod) return 'This week'
+      const endD    = new Date(endDate + 'T00:00:00')
+      const daysAgo = (new Date() - endD) / 86400000
+      if (daysAgo >= 1 && daysAgo <= 8) return 'Last week'
+      return ''
     }
-    onToggle(periodKey)
+    return isThisPeriod ? `This month · ${pMonthName}` : `${pMonthName} · Month`
   }
+  const cardPeriodLabel = getCardPeriodLabel()
 
   function handleIntentionSaved() {
     setIsEditing(false)
@@ -362,169 +296,229 @@ export default function WeekCard({
   function handleReviewFormComplete() {
     setIsEditReview(false)
     setLocalVersion(v => v + 1)
-    onReviewComplete(periodKey)
+    if (onReviewComplete) onReviewComplete()
   }
 
-  // ─── Collapsed header ──────────────────────────────────────────────────────
+  function toggleItem(itemId, checked) {
+    if (isWeek) updateWeeklyIntentionItem(periodKey, itemId, checked)
+    else updateMonthlyIntentionItem(periodKey, itemId, checked)
+    setLocalVersion(v => v + 1)
+  }
 
-  const arrow = html`<span class=${`collapse-arrow${isOpen ? ' open' : ''}`}>›</span>`
+  // ─── Intention body (used in all card styles) ─────────────────────────────
 
-  let collapsedContent
-  if (view === 'reviews') {
-    collapsedContent = html`
-      <div style=${{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-        <span class=${`review-status status-${reviewStatus}`}>
-          ${reviewStatus === 'done' ? 'Done' : reviewStatus === 'pending' ? 'Pending' : 'Not yet'}
-        </span>
-        ${arrow}
+  function renderIntentionBody(inCard) {
+    if (isEditing) {
+      return html`
+        <${IntentionEdit}
+          periodKey=${periodKey}
+          periodType=${periodType}
+          startDate=${startDate}
+          endDate=${endDate}
+          intention=${intention}
+          onCancel=${() => setIsEditing(false)}
+          onSaved=${handleIntentionSaved}
+        />
+      `
+    }
+
+    if (intention) {
+      return html`
+        ${inCard
+          ? html`<div class="card-sentence">"${intention.sentence}"</div>`
+          : html`
+            <div class="intention-header">
+              <div class="intention-sentence">"${intention.sentence}"</div>
+              <${SimpleButton}
+                label="Edit"
+                style=${{ width: 'auto', padding: '5px 10px' }}
+                onClick=${() => setIsEditing(true)}
+              />
+            </div>
+          `
+        }
+        ${isWeek && (intention.items || []).length > 0 && html`
+          <div class="checklist">
+            ${(intention.items || []).map(item => html`
+              <${CheckItem}
+                key=${item.id}
+                item=${item}
+                onToggle=${toggleItem}
+                editMode=${false}
+              />
+            `)}
+          </div>
+        `}
+        ${(intention.focusWords || []).length > 0 && html`
+          <div class="focus-pills">
+            ${(intention.focusWords || []).map(w => html`<div key=${w} class="focus-pill">${w}</div>`)}
+          </div>
+        `}
+        ${inCard && !isWeek && html`<div style=${{ height: '4px' }}></div>`}
+      `
+    }
+
+    // No intention set
+    return html`
+      <div class="card-empty">
+        ${isWeek ? 'No intention set for this week.' : `No intention set for ${pMonthName} yet.`}
+      </div>
+      <div class="amber-btn" onClick=${() => setIsEditing(true)}>
+        ${isWeek ? 'Set intention for this week' : 'Set intention for this month'}
       </div>
     `
-  } else {
-    collapsedContent = html`
-      ${intention
-        ? html`<span class="week-snippet">"${intention.sentence}"</span>`
-        : html`<span class="week-no-intention">No intention set</span>`
-      }
-      ${arrow}
+  }
+
+  // ─── Review body ──────────────────────────────────────────────────────────
+
+  function renderReviewBody() {
+    if (isReviewing || isEditReview) {
+      const existingAnswers = review?.answers || review?.responses?.answers || null
+      return html`
+        <${ReviewForm}
+          periodKey=${periodKey}
+          periodType=${periodType}
+          intention=${intention}
+          existingAnswers=${isEditReview ? existingAnswers : null}
+          onComplete=${handleReviewFormComplete}
+          onCancel=${() => {
+            setIsEditReview(false)
+            if (onReviewComplete) onReviewComplete()
+          }}
+        />
+      `
+    }
+
+    if (reviewStatus === 'done') {
+      const insights = review?.insights || review?.responses?.insights || []
+      const moodWord = review?.moodWord || review?.responses?.moodWord || null
+      return html`
+        <div class="insight-list">
+          ${insights.map((insight, i) => html`
+            <div key=${i} class="insight-item">
+              <span class="insight-star">✦</span>
+              <div class="insight-text">${insight}</div>
+            </div>
+          `)}
+        </div>
+        ${moodWord && html`<div class="mood-word">"${moodWord}"</div>`}
+        <${SimpleButton} label="Edit review" onClick=${() => setIsEditReview(true)} />
+      `
+    }
+
+    if (reviewStatus === 'pending') {
+      return html`
+        <div style=${{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: '16px',
+          color: 'var(--text-muted)',
+          lineHeight: 1.6,
+          marginBottom: '16px',
+        }}>
+          ${isWeek
+            ? '"The week has passed. Vera will read what you shared and put together a few thoughts."'
+            : '"The month has passed. Vera will read what you shared and reflect back what she noticed."'
+          }
+        </div>
+        <div class="amber-btn" onClick=${() => onStartReview && onStartReview(periodKey)}>Begin review</div>
+      `
+    }
+
+    return html`
+      <div style=${{
+        fontFamily: "'Cormorant Garamond', serif",
+        fontSize: '16px',
+        color: 'var(--text-dim)',
+        opacity: 0.5,
+        lineHeight: 1.6,
+      }}>
+        ${isWeek
+          ? '"This week isn\'t over yet. Come back when it is."'
+          : '"This month isn\'t over yet. Come back when it is."'
+        }
+      </div>
     `
   }
 
-  // ─── Expanded content ──────────────────────────────────────────────────────
+  // ─── Render: primary ──────────────────────────────────────────────────────
 
-  let expandedContent = null
-  if (isOpen) {
+  if (variant === 'primary') {
     if (view === 'intentions') {
-      if (isEditing) {
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <${IntentionEdit}
-            periodKey=${periodKey}
-            periodType=${periodType}
-            startDate=${startDate}
-            endDate=${endDate}
-            intention=${intention}
-            onCancel=${() => setIsEditing(false)}
-            onSaved=${handleIntentionSaved}
-          />
-        `
-      } else if (intention) {
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <${IntentionView}
-            intention=${intention}
-            periodKey=${periodKey}
-            periodType=${periodType}
-            endDate=${endDate}
-            onStartEdit=${() => setIsEditing(true)}
-            onReviewThisWeek=${onReviewThisWeek}
-            localVersion=${localVersion}
-            setLocalVersion=${setLocalVersion}
-          />
-        `
-      } else {
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <div class="week-card-expanded" style=${{ padding: '12px 16px 14px' }}>
-            <div class="amber-btn" onClick=${() => setIsEditing(true)}>
-              ${isWeek ? 'Set intention for this week' : 'Set intention for this month'}
-            </div>
-          </div>
-        `
-      }
-    } else {
-      // reviews view
-      if (isReviewing || isEditReview) {
-        const existingAnswers = review?.answers || review?.responses?.answers || null
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <div class="week-card-expanded">
-            <${ReviewForm}
-              periodKey=${periodKey}
-              periodType=${periodType}
-              intention=${intention}
-              existingAnswers=${isEditReview ? existingAnswers : null}
-              onComplete=${handleReviewFormComplete}
-              onCancel=${() => {
-                setIsEditReview(false)
-                onReviewComplete(periodKey)
-              }}
-            />
-          </div>
-        `
-      } else if (reviewStatus === 'done') {
-        // Support both new flat structure and old responses-wrapped structure
-        const insights = review?.insights || review?.responses?.insights || []
-        const moodWord = review?.moodWord || review?.responses?.moodWord || null
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <div class="week-card-expanded">
-            <div class="insight-list">
-              ${insights.map((insight, i) => html`
-                <div key=${i} class="insight-item">
-                  <span class="insight-star">✦</span>
-                  <div class="insight-text">${insight}</div>
-                </div>
-              `)}
-            </div>
-            ${moodWord && html`<div class="mood-word">"${moodWord}"</div>`}
-            <${SimpleButton} label="Edit review" onClick=${() => setIsEditReview(true)} />
-          </div>
-        `
-      } else if (reviewStatus === 'pending') {
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <div class="week-card-expanded">
-            <div style=${{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '16px',
-              fontStyle: 'italic',
-              color: 'var(--text-muted)',
-              lineHeight: 1.6,
-              marginBottom: '16px',
-            }}>
-              ${isWeek
-                ? '"The week has passed. Vera will read what you shared and put together a few thoughts."'
-                : '"The month has passed. Vera will read what you shared and reflect back what she noticed."'
-              }
-            </div>
-            <div class="amber-btn" onClick=${() => onStartReview(periodKey)}>Begin review</div>
-          </div>
-        `
-      } else {
-        expandedContent = html`
-          <div class="card-divider"></div>
-          <div class="week-card-expanded">
-            <div style=${{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '16px',
-              fontStyle: 'italic',
-              color: 'var(--text-dim)',
-              opacity: 0.5,
-              lineHeight: 1.6,
-            }}>
-              ${isWeek
-                ? '"This week isn\'t over yet. Come back when it is."'
-                : '"This month isn\'t over yet. Come back when it is."'
-              }
-            </div>
-          </div>
-        `
-      }
+      return html`
+        <div class="week-card-primary">
+          ${intention && !isEditing && html`
+            <button class="edit-btn" onClick=${() => setIsEditing(true)}>Edit</button>
+          `}
+          ${cardPeriodLabel && html`<div class="card-period">${cardPeriodLabel}</div>`}
+          <div class="card-daterange">${label}</div>
+          ${renderIntentionBody(true)}
+        </div>
+      `
     }
+
+    return html`
+      <div class="review-card-open">
+        <div class="review-card-header">
+          <div>
+            ${cardPeriodLabel && html`<div class="card-period" style=${{ marginBottom: '3px' }}>${cardPeriodLabel}</div>`}
+            <div class="card-daterange" style=${{ marginBottom: 0 }}>${label}</div>
+          </div>
+          <span class=${`review-status status-${reviewStatus}`}>
+            ${reviewStatus === 'done' ? 'Done' : reviewStatus === 'pending' ? 'Pending' : 'Not yet'}
+          </span>
+        </div>
+        ${renderReviewBody()}
+      </div>
+    `
   }
+
+  // ─── Render: secondary ────────────────────────────────────────────────────
+
+  if (variant === 'secondary') {
+    return html`
+      <div class="month-card-secondary">
+        ${intention && !isEditing && html`
+          <button class="edit-btn" onClick=${() => setIsEditing(true)}>Edit</button>
+        `}
+        ${cardPeriodLabel && html`<div class="card-period">${cardPeriodLabel}</div>`}
+        ${renderIntentionBody(true)}
+      </div>
+    `
+  }
+
+  // ─── Render: hist ─────────────────────────────────────────────────────────
+
+  const intentionSnippet = intention?.sentence
+  const reviewMoodWord   = review?.moodWord || review?.responses?.moodWord
+
+  const histSnippet = view === 'intentions'
+    ? (intentionSnippet ? `"${intentionSnippet}"` : 'No intention set')
+    : (reviewMoodWord ? `"${reviewMoodWord}"` : '')
+
+  const snippetFaded = view === 'intentions' && !intentionSnippet
 
   return html`
-    <div class="week-card">
-      <div class="week-card-collapsed" onClick=${handleToggle}>
-        <div class="week-left">
-          <span class="week-date-range">${label}</span>
-          ${isThisPeriod && html`
-            <span class="week-badge badge-this">${isWeek ? 'This week' : 'This month'}</span>
-          `}
+    <div class="hist-row" style=${{ borderBottom: isOpen ? 'none' : undefined }} onClick=${() => onToggle && onToggle(periodKey)}>
+      <div class="hist-left">
+        <div class="hist-date">${label}</div>
+        <div class="hist-snippet" style=${{ opacity: snippetFaded ? 0.25 : undefined }}>
+          ${histSnippet}
         </div>
-        ${collapsedContent}
       </div>
-      ${expandedContent}
+      <div class="hist-right">
+        <div class=${`type-pill ${isWeek ? 'type-pill-week' : 'type-pill-month'}`}>
+          ${isWeek ? 'Week' : 'Month'}
+        </div>
+        ${view === 'reviews' && html`
+          <span class=${`review-status status-${reviewStatus}`} style=${{ fontSize: '7px', padding: '2px 6px' }}>
+            ${reviewStatus === 'done' ? 'Done' : reviewStatus === 'pending' ? 'Pending' : 'Not yet'}
+          </span>
+        `}
+        <div class="hist-arrow" style=${{
+          transform: isOpen ? 'rotate(90deg)' : 'none',
+          transition: 'transform 0.2s ease',
+        }}>›</div>
+      </div>
     </div>
   `
 }
