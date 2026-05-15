@@ -134,7 +134,7 @@ async function buildOpeningMessage(allMessages) {
       const opening = await generateReEngagementOpening(signals.daysInactive)
       if (opening) return opening
     } catch (e) { /* fall through */ }
-    return `hey${nameStr}, it's been a few days — what's been going on?`
+    return `hey${nameStr} — how are you doing?`
   }
 
   // Returning after 1-2 days — sometimes use contextual AI opening
@@ -147,21 +147,25 @@ async function buildOpeningMessage(allMessages) {
         if (opening) return opening
       } catch (e) { /* fall through */ }
     }
-    return `hey${nameStr} — how are you doing today?`
+    return `hey${nameStr} — how are you doing?`
   }
 
-  // Same-day return — vary by time and day
-  const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][day]
-  const options = [
-    hour < 12 ? `morning${nameStr} — how are you starting today?` : null,
-    hour >= 17 && (day === 0 || day === 6) ? `${dayName} evening${nameStr} — how's the weekend been?` : null,
-    hour >= 17 && day === 5 ? `friday evening${nameStr} — how did the week end up?` : null,
-    `hey${nameStr} — how's the day going?`,
+  // Same-day return — vary naturally
+  const simpleFallbacks = [
+    `hey${nameStr} — how are you doing?`,
+    `hey${nameStr}. what's going on?`,
+    `how've you been${nameStr}?`,
+    `hey${nameStr} — how's today been?`,
     `what's been on your mind${nameStr}?`,
-    `how are you doing today${nameStr}?`,
   ].filter(Boolean)
 
-  return options[Math.floor(Math.random() * options.length)]
+  // Time-aware options that don't sound slang-y
+  const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][day]
+  if (hour < 12) simpleFallbacks.push(`morning${nameStr} — how are you starting today?`)
+  if (hour >= 17 && (day === 0 || day === 6)) simpleFallbacks.push(`${dayName} evening${nameStr} — how's the weekend been?`)
+  if (hour >= 17 && day === 5) simpleFallbacks.push(`friday evening${nameStr} — how did the week end up?`)
+
+  return simpleFallbacks[Math.floor(Math.random() * simpleFallbacks.length)]
 }
 
 // ─── Conversation initialisation (runs once on mount) ─────────────────────────

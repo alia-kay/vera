@@ -36,23 +36,35 @@ const MONTHLY_QUESTIONS = [
 const html = htm.bind(React.createElement)
 
 function splitVeraMessage(text) {
-  if (text.length <= 200) return [text]
+  if (!text || !text.trim()) return [text]
 
-  const sentences = text.match(/[^.!?]+[.!?]+["']?/g) || [text]
+  // Split at sentence endings followed by a space and a new sentence
+  const sentences = text
+    .split(/(?<=[.!?])\s+(?=[a-zA-Z"'])/)
+    .map(s => s.trim())
+    .filter(Boolean)
 
+  if (sentences.length <= 1) return [text]
+
+  // Group very short sentences (under 40 chars) that belong together
   const parts = []
   let current = ''
 
-  for (const sentence of sentences) {
-    if ((current + sentence).length > 220 && current.length > 60) {
-      parts.push(current.trim())
-      current = sentence
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i]
+
+    if (!current) {
+      current = s
+    } else if (current.length < 40 && s.length < 40) {
+      current = current + ' ' + s
     } else {
-      current += sentence
+      parts.push(current)
+      current = s
     }
   }
-  if (current.trim()) parts.push(current.trim())
+  if (current) parts.push(current)
 
+  // Never more than 3 bubbles
   if (parts.length > 3) {
     return [
       parts.slice(0, parts.length - 2).join(' '),
@@ -61,7 +73,10 @@ function splitVeraMessage(text) {
     ]
   }
 
-  return parts.length > 1 ? parts : [text]
+  // Don't split a single short message
+  if (parts.length === 1 || text.length < 120) return [text]
+
+  return parts
 }
 
 function formatTime(isoString) {
@@ -137,7 +152,7 @@ export default function ShareTab({
       } else {
         setMessages(prev => prev.filter(m => m.id !== veraId))
         for (let i = 0; i < parts.length; i++) {
-          if (i > 0) await new Promise(resolve => setTimeout(resolve, 400))
+          if (i > 0) await new Promise(resolve => setTimeout(resolve, 600))
           const partId = veraId + '_' + i
           setMessages(prev => [...prev, {
             type: 'vera',
