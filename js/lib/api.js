@@ -19,8 +19,9 @@ import {
 
 // ─── Provider config ──────────────────────────────────────────────────────────
 
-const AI_ENDPOINT    = 'https://api.anthropic.com/v1/messages'
-const AI_MODEL       = 'claude-haiku-4-5-20251001'
+const AI_ENDPOINT         = 'https://api.anthropic.com/v1/messages'
+const MODEL_CONVERSATION  = 'claude-sonnet-4-5-20251001'
+const MODEL_BACKGROUND    = 'claude-haiku-4-5-20251001'
 const _ENC_KEY       = 'vera-mv-2024-xk'
 const _ENC_API_KEY   = 'BQ5fAEMZW0xCWQIHABc7QigUCkcsGRl1QQBrXRkGHQE+GWcbKVtiRWZjex0lAjA+UBkLFE5EQmR+ZzIBAwICVEIEEnlmUlh4WzkuHAkdOE4IH114AAtxfik7Li01B1wKPkxzHQN2SDBcESQz'
 const AI_API_KEY     = atob(_ENC_API_KEY).split('').map((c, i) =>
@@ -79,10 +80,11 @@ async function collectStream(response) {
 
 // onChunk(text) is called with each text fragment as it streams.
 // Pass null/undefined for non-chat calls (summary, review, suggest).
-export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION, onChunk = null) {
+export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONVERSATION, onChunk = null, model = MODEL_CONVERSATION) {
   if (!AI_API_KEY) throw new Error('No API key configured. Set AI_API_KEY in js/lib/api.js')
 
   if (DEBUG()) {
+    console.log('AI call — model:', model, '| tokens:', maxTokens)
     console.group('[Vera] callAI')
     console.log('system:', systemPrompt)
     console.log('messages:', messages)
@@ -98,11 +100,11 @@ export async function callAI(systemPrompt, messages, maxTokens = MAX_TOKENS_CONV
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model,
       max_tokens: maxTokens,
       system: systemPrompt,
       messages,
-      stream: true,
+      stream: !!onChunk,
     }),
   })
 
@@ -207,7 +209,7 @@ export async function sendMessage(userText, allMessages = [], activeNudge = null
     console.groupEnd()
   }
 
-  const rawResponse = await callAI(systemPrompt, historyMessages, MAX_TOKENS_CONVERSATION, onChunk)
+  const rawResponse = await callAI(systemPrompt, historyMessages, MAX_TOKENS_CONVERSATION, onChunk, MODEL_CONVERSATION)
   const result = parseVeraResponse(rawResponse)
 
   if (result.newPattern) {
@@ -232,7 +234,9 @@ export async function regenerateSummary() {
   const newText = await callAI(
     prompt,
     [{ role: 'user', content: 'Generate the summary now.' }],
-    MAX_TOKENS_SUMMARY
+    MAX_TOKENS_SUMMARY,
+    null,
+    MODEL_BACKGROUND
   )
 
   saveLivingSummary(newText)
@@ -249,7 +253,9 @@ export async function generateWeeklyReview(answers, questions, intention, isMont
     const raw = await callAI(
       'You are a precise, empathetic observer. Return only valid JSON as instructed.',
       [{ role: 'user', content: prompt }],
-      400
+      400,
+      null,
+      MODEL_BACKGROUND
     )
     const clean = raw.replace(/```json|```/g, '').trim()
     return JSON.parse(clean)
@@ -329,7 +335,9 @@ Return only valid JSON. No preamble, no markdown fences.`
     const raw   = await callAI(
       'You are Vera. Return only valid JSON as instructed.',
       [{ role: 'user', content: prompt }],
-      300
+      300,
+      null,
+      MODEL_BACKGROUND
     )
     const clean = raw.replace(/```json|```/g, '').trim()
     return JSON.parse(clean)
@@ -384,7 +392,9 @@ Return only the message text. No quotes, no explanation.`
     const response = await callAI(
       'You are Vera. Write only the message text as instructed. Keep it to 1-2 sentences.',
       [{ role: 'user', content: prompt }],
-      80
+      80,
+      null,
+      MODEL_CONVERSATION
     )
     return response.trim().replace(/^["']|["']$/g, '')
   } catch (e) {
@@ -420,7 +430,9 @@ Return only the message text.`
     const response = await callAI(
       'You are Vera. Write only the message text. One sentence.',
       [{ role: 'user', content: prompt }],
-      60
+      60,
+      null,
+      MODEL_CONVERSATION
     )
     return response.trim().replace(/^["']|["']$/g, '')
   } catch (e) {
@@ -469,7 +481,9 @@ Keep it warm, specific, and human. No clinical language. No bullet points.`
     const response = await callAI(
       'Write a warm, philosophical 2-3 sentence day recap followed by one reflection suggestion.',
       [{ role: 'user', content: prompt }],
-      200
+      200,
+      null,
+      MODEL_BACKGROUND
     )
     return response.trim()
   } catch (e) {
@@ -560,7 +574,9 @@ Return only valid JSON. No preamble, no markdown fences.`
     const raw = await callAI(
       'You are Vera. Return only valid JSON.',
       [{ role: 'user', content: prompt }],
-      220
+      220,
+      null,
+      MODEL_BACKGROUND
     )
     const clean = raw.replace(/```json|```/g, '').trim()
     const result = JSON.parse(clean)
@@ -614,7 +630,9 @@ Return only the observation text. No quotes, no JSON, no explanation.`
     const response = await callAI(
       'You are Vera. Write only the observation text as instructed.',
       [{ role: 'user', content: prompt }],
-      100
+      100,
+      null,
+      MODEL_BACKGROUND
     )
     return response.trim().replace(/^["']|["']$/g, '')
   } catch(e) {
@@ -645,7 +663,9 @@ export async function generateClosing(yesterdayMessages) {
     const response = await callAI(
       'You are Vera. Follow the closing instructions exactly.',
       [{ role: 'user', content: closingPrompt }],
-      150
+      150,
+      null,
+      MODEL_BACKGROUND
     )
     return response.trim()
   } catch (err) {
